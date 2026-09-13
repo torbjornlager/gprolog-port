@@ -1,0 +1,786 @@
+[
+  {
+    "predicate": "true/0",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "fail/0",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "call/1",
+    "scope": "required",
+    "implementation": "policy.pl: scoped closure application",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "!/0",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": ",/2",
+    "scope": "required",
+    "implementation": "policy.pl: native control structure",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": ";/2",
+    "scope": "required",
+    "implementation": "policy.pl: native control structure",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "->/2",
+    "scope": "required",
+    "implementation": "policy.pl: native control structure",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "catch/3",
+    "scope": "required",
+    "implementation": "policy.pl: native control structure",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "throw/1",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "=/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "unify_with_occurs_check/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "\\=/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "subsumes_term/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "var/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "atom/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "integer/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "float/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "atomic/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "compound/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "nonvar/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "number/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "callable/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "ground/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "acyclic_term/1",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "@=</2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "==/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "\\==/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "@</2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "@>/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "@>=/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "compare/3",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "sort/2",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "keysort/2",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "functor/3",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "arg/3",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "=../2",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "copy_term/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "term_variables/2",
+    "scope": "required",
+    "implementation": "policy.pl: independent result unification",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "is/2",
+    "scope": "required",
+    "implementation": "prologue.pl: guarded arithmetic",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "=:=/2",
+    "scope": "required",
+    "implementation": "prologue.pl: guarded arithmetic",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "=\\=/2",
+    "scope": "required",
+    "implementation": "prologue.pl: guarded arithmetic",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "</2",
+    "scope": "required",
+    "implementation": "prologue.pl: guarded arithmetic",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "=</2",
+    "scope": "required",
+    "implementation": "prologue.pl: guarded arithmetic",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": ">/2",
+    "scope": "required",
+    "implementation": "prologue.pl: guarded arithmetic",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": ">=/2",
+    "scope": "required",
+    "implementation": "prologue.pl: guarded arithmetic",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "clause/2",
+    "scope": "required",
+    "implementation": "policy.pl + source.pl + compile_shared.pl",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "shared_db_tests.py; compiled_tests.py; proof_tree_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "findall/3",
+    "scope": "required",
+    "implementation": "policy.pl: guarded all-solutions",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "bagof/3",
+    "scope": "required",
+    "implementation": "policy.pl: guarded all-solutions",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "setof/3",
+    "scope": "required",
+    "implementation": "policy.pl: guarded all-solutions",
+    "status": "implemented; selected acyclic term-mode audit complete",
+    "evidence": "term_mode_cases.py (construction, sharing, ordering and all-solutions)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "\\+/1",
+    "scope": "required",
+    "implementation": "policy.pl: guarded control",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "once/1",
+    "scope": "required",
+    "implementation": "policy.pl: guarded control",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "repeat/0",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "call/2",
+    "scope": "required",
+    "implementation": "policy.pl: scoped closure application",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "call/3",
+    "scope": "required",
+    "implementation": "policy.pl: scoped closure application",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "call/4",
+    "scope": "required",
+    "implementation": "policy.pl: scoped closure application",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "call/5",
+    "scope": "required",
+    "implementation": "policy.pl: scoped closure application",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "call/6",
+    "scope": "required",
+    "implementation": "policy.pl: scoped closure application",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "call/7",
+    "scope": "required",
+    "implementation": "policy.pl: scoped closure application",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "call/8",
+    "scope": "required",
+    "implementation": "policy.pl: scoped closure application",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "false/0",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "atom_length/2",
+    "scope": "required",
+    "implementation": "text.pl",
+    "status": "implemented; selected argument-mode audit complete",
+    "evidence": "predicate_mode_cases.py (bound, partial, invalid arguments; length cycles)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "atom_concat/3",
+    "scope": "required",
+    "implementation": "text.pl",
+    "status": "implemented; selected argument-mode audit complete",
+    "evidence": "predicate_mode_cases.py (bound, partial, invalid arguments; length cycles)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "sub_atom/5",
+    "scope": "required",
+    "implementation": "text.pl",
+    "status": "implemented; selected argument-mode audit complete",
+    "evidence": "predicate_mode_cases.py (bound, partial, invalid arguments; length cycles)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "atom_chars/2",
+    "scope": "required",
+    "implementation": "text.pl",
+    "status": "implemented; selected argument-mode audit complete",
+    "evidence": "predicate_mode_cases.py (bound, partial, invalid arguments; length cycles)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "atom_codes/2",
+    "scope": "required",
+    "implementation": "text.pl",
+    "status": "implemented; selected argument-mode audit complete",
+    "evidence": "predicate_mode_cases.py (bound, partial, invalid arguments; length cycles)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "char_code/2",
+    "scope": "required",
+    "implementation": "text.pl",
+    "status": "implemented; selected conversion-mode audit complete",
+    "evidence": "conversion_mode_cases.py; numeric_mode_cases.py (selected modes, lexical forms and round trips)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "number_chars/2",
+    "scope": "required",
+    "implementation": "text.pl + terms.c: guarded conversion",
+    "status": "implemented; selected conversion-mode audit complete",
+    "evidence": "conversion_mode_cases.py; numeric_mode_cases.py (selected modes, lexical forms and round trips)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "number_codes/2",
+    "scope": "required",
+    "implementation": "text.pl + terms.c: guarded conversion",
+    "status": "implemented; selected conversion-mode audit complete",
+    "evidence": "conversion_mode_cases.py; numeric_mode_cases.py (selected modes, lexical forms and round trips)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "phrase/2",
+    "scope": "required",
+    "implementation": "policy.pl: DCG expansion and guarded execution",
+    "status": "implemented; selected DCG-mode audit complete",
+    "evidence": "dcg_mode_cases.py; mode_cases.py; policy_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "phrase/3",
+    "scope": "required",
+    "implementation": "policy.pl: DCG expansion and guarded execution",
+    "status": "implemented; selected DCG-mode audit complete",
+    "evidence": "dcg_mode_cases.py; mode_cases.py; policy_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "member/2",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected list-mode audit complete",
+    "evidence": "list_mode_cases.py (remainder, improper/cyclic lists, integer relations)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "append/3",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected list-mode audit complete",
+    "evidence": "list_mode_cases.py (remainder, improper/cyclic lists, integer relations)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "length/2",
+    "scope": "required",
+    "implementation": "prologue.pl + terms.c: list-spine identity",
+    "status": "implemented; selected argument-mode audit complete",
+    "evidence": "predicate_mode_cases.py (bound, partial, invalid arguments; length cycles)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "between/3",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected list-mode audit complete",
+    "evidence": "list_mode_cases.py (remainder, improper/cyclic lists, integer relations)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "select/3",
+    "scope": "required",
+    "implementation": "policy.pl \u2192 GNU built-in",
+    "status": "implemented; selected list-mode audit complete",
+    "evidence": "list_mode_cases.py (remainder, improper/cyclic lists, integer relations)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "succ/2",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected list-mode audit complete",
+    "evidence": "list_mode_cases.py (remainder, improper/cyclic lists, integer relations)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "nth0/3",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected list-mode audit complete",
+    "evidence": "list_mode_cases.py (remainder, improper/cyclic lists, integer relations)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "nth0/4",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected list-mode audit complete",
+    "evidence": "list_mode_cases.py (remainder, improper/cyclic lists, integer relations)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "nth1/3",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected list-mode audit complete",
+    "evidence": "list_mode_cases.py (remainder, improper/cyclic lists, integer relations)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "nth1/4",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; selected list-mode audit complete",
+    "evidence": "list_mode_cases.py (remainder, improper/cyclic lists, integer relations)",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "call_nth/2",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "maplist/2",
+    "scope": "required",
+    "implementation": "policy.pl: scoped maplist",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "maplist/3",
+    "scope": "required",
+    "implementation": "policy.pl: scoped maplist",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "maplist/4",
+    "scope": "required",
+    "implementation": "policy.pl: scoped maplist",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "maplist/5",
+    "scope": "required",
+    "implementation": "policy.pl: scoped maplist",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "foldl/4",
+    "scope": "required",
+    "implementation": "policy.pl: scoped foldl",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "foldl/5",
+    "scope": "required",
+    "implementation": "policy.pl: scoped foldl",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "foldl/6",
+    "scope": "required",
+    "implementation": "policy.pl: scoped foldl",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "foldl/7",
+    "scope": "required",
+    "implementation": "policy.pl: scoped foldl",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "mode_cases.py; higher_arithmetic_cases.py; policy_tests.py; source_tests.py",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "crypto_data_hash/3",
+    "scope": "optional",
+    "implementation": "unavailable",
+    "status": "optional extension; unavailable",
+    "evidence": "acceptance matrix: local extension, not required prologue",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "time/1",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "rpc/2",
+    "scope": "required",
+    "implementation": "rpc.pl + transport.c",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "rpc/3",
+    "scope": "required",
+    "implementation": "rpc.pl + transport.c",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "promise/3",
+    "scope": "required",
+    "implementation": "rpc.pl + transport.c",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "promise/4",
+    "scope": "required",
+    "implementation": "rpc.pl + transport.c",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "yield/2",
+    "scope": "required",
+    "implementation": "rpc.pl + transport.c",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "yield/3",
+    "scope": "required",
+    "implementation": "rpc.pl + transport.c",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  },
+  {
+    "predicate": "runtime_property/1",
+    "scope": "required",
+    "implementation": "prologue.pl",
+    "status": "implemented; complete mode audit pending",
+    "evidence": "conformance_tests.py; inspect individual cases",
+    "remaining": "All unsampled modes, error precedence, determinism and source interactions"
+  }
+]

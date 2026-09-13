@@ -1,0 +1,25 @@
+# Separate, pinned upstream checkout and private installation
+/gprolog/
+/install/
+
+# Generated native bundles and executables
+/isobase/build/
+/isobase/isobase-node
+/isobase/isobase-node-asan
+/isobase/query-worker
+/isobase/query-worker-asan
+/isobase/query-supervisor
+/isobase/query-supervisor-asan
+/isobase/shared-compiler
+/experiment/controller
+
+# Local test output, compiler products and editor caches
+/isobase/conformance-results.json
+/experiment/results.json
+*.log
+*.o
+*.a
+*.dSYM/
+__pycache__/
+*.py[cod]
+.DS_Store
