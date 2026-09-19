@@ -9,7 +9,7 @@ roadmap have been dropped; this project is focused on ISOBASE.
 
 ```
 make
-./isobase-node --port 8081 --max-queries 8 --time-ms 1000 --idle-ms 30000
+./isobase-node --port 8081 --max-queries 8 --time-ms 1000 --idle-ms 30000 --memory-mb 256 --total-memory-mb 1024
 ```
 
 The server binds **127.0.0.1 only**. Port `0` requests an ephemeral port; the
@@ -274,7 +274,7 @@ conformance**. Current limits and known differences include:
   normalized Prolog variants. Prolog answers use standard quoted term syntax;
   operator spelling may differ from the demonstrator's canonical writer.
 - Remaining edge-case conformance checks,
-  authentication and a total-process-memory policy remain unfinished.
+  authentication and hard OS memory containment remain unfinished.
 
 Validation: `make test` includes the worker, source, policy, supervisor and HTTP
 suites, including eviction order, process cleanup and active-query protection. `make diff-test` launches temporary GNU and SWI nodes and compares 42
@@ -351,8 +351,9 @@ The listed core prologue predicates are implemented; exhaustive mode/error
 conformance remains to be established. See `CONFORMANCE.md` for the ledger. Statically visible forbidden calls in source are rejected even
 in unused clauses; dynamically constructed calls are checked before execution.
 The regression tests establish specific cases, not a security proof. The supervisor below provides active/idle deadlines, stack and response
-bounds; the HTTP controller adds node-wide concurrency admission. Total-memory
-limits remain unfinished.
+bounds and a sampled combined worker/supervisor memory budget; the HTTP controller
+adds node-wide concurrency and memory admission, with idle-first reclamation and
+largest-active termination under aggregate pressure. See MEMORY_LIMITS.md for limits.
 
 The worker evaluates one answer ahead to detect exhaustion. If that evaluation
 throws, it preserves the already obtained page and reports the exception on
@@ -393,6 +394,7 @@ query. Invalid commands terminate that lifetime with a protocol error.
 | `--time-ms` | 1000 | Cumulative elapsed active time across source loading and all pages; idle waiting is excluded |
 | `--idle-ms` | 30000 | Time allowed to request the next page; partial commands do not extend it |
 | `--heap-kb` | 16384 | GNU Prolog global-stack allocation in KiB |
+| `--memory-mb` | 256 | Combined worker and supervisor memory budget in MiB, sampled during execution and idle waiting; also available on the HTTP node |
 | `--max-output` | 1048576 | Maximum bytes in one complete worker response, including newline |
 
 The supervisor also sets local/trail/constraint stacks to 8192/4096/4096 KiB
@@ -400,12 +402,16 @@ and disables core dumps. These are stack limits, **not a total RSS or dynamic
 allocation limit**. A too-small stack may cause GNU Prolog to terminate or
 emit a diagnostic; this is reported as a worker failure, not a guaranteed
 structured stack-overflow exception. The HTTP controller supplies concurrency
-admission; a total-memory policy remains unfinished.
+and aggregate memory admission (`--total-memory-mb`, default 1024 MiB).
+The separate per-query memory budget covers process allocations using macOS
+physical footprint (Linux fallback: RSS); it can overshoot between samples.
+See [MEMORY_LIMITS.md](MEMORY_LIMITS.md) for scope, measurements and tests.
 
 Only complete worker response lines are forwarded. Time/output-limit failures
 replace an unfinished page with one error event rather than forwarding partial
 JSON. Error terms include `time_limit_exceeded`, `continuation_expired`,
-`output_limit_exceeded`, `cancelled`, `controller_disconnected`, `worker_exit`
+`output_limit_exceeded`, `memory_limit_exceeded`, `memory_monitor_failed`,
+`cancelled`, `controller_disconnected`, `worker_exit`
 and `worker_protocol_error`. Supervisor output backpressure is bounded to one
 second; a disconnected or non-reading controller cannot be guaranteed a final
 event. SIGINT/SIGTERM trigger worker cleanup. An uncatchable supervisor SIGKILL
@@ -429,8 +435,8 @@ supervisor is instrumented by this target; GNU Prolog itself is not.
 1. Complete the mode/error and portability audit recorded in `CONFORMANCE.md`.
 2. Close the documented HTTP/source compatibility gaps and expand differential
    testing to the full intended profile contract.
-3. Add authentication and public execution controls, and establish a policy for
-   total process memory, including atoms, source and dynamic allocations.
+3. Add authentication, public execution controls and hard OS memory containment
+   beyond the sampled query and node budgets.
 4. Extend endurance and failure testing across concurrent requests, continuation
    expiry and resource exhaustion before claiming full ISOBASE conformance.
 
@@ -560,3 +566,19 @@ cases with 25 explicit host boundaries. GNU omits an unbound remote timeout
 without binding it and matches sampled once-option behavior. Source composition
 preserves option order; the corresponding SWI accumulator bug was fixed in source
 and tested on disposable nodes. GNU's stricter negative-timeout policy remains.
+
+
+The ninth audit adds 58 RPC URI and validation-order cases, bringing the corpus
+to 1277 cases with 42 explicit host boundaries. Source downloads preserve exact
+URLs, remote timeouts are validated before source composition, and HTTP timeout
+validation follows the sampled mode/error contract. Eleven separate checks cover
+ordered source failures and transport-slot recovery, including compiled workers.
+See RPC_BOUNDARY.md for the URI and transport differences that remain.
+
+
+The node now also enforces a sampled aggregate memory budget via
+`--total-memory-mb` (default 1024 MiB), including controller overhead. Admission
+uses a minimum 16 MiB query reservation, evicts idle continuations first and
+returns HTTP 503 when no room remains. Actual excess triggers idle-first
+reclamation followed by largest-active termination. See MEMORY_LIMITS.md for
+error semantics, startup validation, measurements and overshoot limitations.

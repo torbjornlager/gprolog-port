@@ -61,10 +61,12 @@ iso_rpc_prepare(Scope,URI,Goal,Template,Options,Base,Limit,Once,HTTP) :-
     iso_option(limit,Options,10000000000,Limit),iso_range(Limit,0,10000000000),
     iso_option(once,Options,false,Once),
     iso_once(Once),
-    iso_option(http_timeout,Options,30,HT),iso_millis(HT,30000,HTTP0),HTTP is max(1,HTTP0),
     iso_option(timeout,Options,none,RequestedTimeout),
     (var(RequestedTimeout)->Timeout=none;Timeout=RequestedTimeout),
+    % Reject remote deadlines before composing or fetching source.
+    (Timeout==none->true;iso_millis(Timeout,0,_)),
     iso_source_options(Scope,Options,Source),
+    iso_option(http_timeout,Options,30,HT),iso_http_millis(HT,HTTP),
     % Assign one set of variable names across Goal and Template.
     term_variables(pair(Goal,Template),Vars),iso_wire_names(Vars,0,Names),
     iso_write_text(Goal,[quoted(true),ignore_ops(false),variable_names(Names)],G),
@@ -73,7 +75,7 @@ iso_rpc_prepare(Scope,URI,Goal,Template,Options,Base,Limit,Once,HTTP) :-
     iso_param(B0,goal,G,B1),iso_param(B1,template,T,B2),
     iso_param(B2,src_text,Source,B3),iso_param(B3,once,Once,B4),
     (Timeout==none -> Base=B4
-    ;iso_millis(Timeout,0,_),iso_param(B4,timeout,Timeout,Base)).
+    ;iso_param(B4,timeout,Timeout,Base)).
 iso_rpc_request(Base,Offset,Limit,HTTP,Reference) :-
     iso_param(Base,offset,Offset,B),iso_param(B,limit,Limit,URL),
     iso_net_start(URL,HTTP,Reference,Status),
@@ -85,26 +87,31 @@ iso_param(Base,Key,Value,Out) :-
     (atom(Value)->Atom=Value;iso_number_atom(Value,Atom)),
     (iso_net_escape(Atom,Encoded)->true;throw(error(request_too_large,rpc/3))),
     atom_concat(Base,'&',A),atom_concat(A,Key,B),atom_concat(B,'=',C),atom_concat(C,Encoded,Out).
-iso_uri(Host:Port,URI) :- nonvar(Host),atom(Host),integer(Port),!,
-    iso_number_atom(Port,P),atom_concat('http://',Host,A),atom_concat(A,':',B),atom_concat(B,P,URI).
 iso_uri(URI0,URI) :-
+    iso_source_uri(URI0,A),
+    (sub_atom(A,_,1,0,'/')->atom_length(A,N),M is N-1,sub_atom(A,0,M,1,URI);URI=A).
+% A source URL identifies an exact resource, not a node base URL.
+iso_source_uri(Host:Port,URI) :- nonvar(Host),atom(Host),integer(Port),!,
+    iso_number_atom(Port,P),atom_concat('http://',Host,A),atom_concat(A,':',B),atom_concat(B,P,URI).
+iso_source_uri(URI0,A) :-
     iso_text(URI0,A),
     ((sub_atom(A,0,7,_,'http://');sub_atom(A,0,8,_,'https://'))->true
-    ;throw(error(domain_error(http_uri,A),rpc/3))),
-    (sub_atom(A,_,1,0,'/')->atom_length(A,N),M is N-1,sub_atom(A,0,M,1,URI);URI=A).
+    ;throw(error(domain_error(http_uri,A),rpc/3))).
 
 iso_source_options(Scope,Options,Source) :-
-    iso_option(http_timeout,Options,30,HT),iso_millis(HT,30000,Millis),HTTP is max(1,Millis),
-    iso_source_parts(Scope,Options,HTTP,Parts),iso_join_sources(Parts,Source).
+    iso_option(http_timeout,Options,30,HT),
+    % Local source errors precede transport validation. A download validates
+    % its deadline before I/O; preparation validates it again for the RPC.
+    iso_source_parts(Scope,Options,HT,Parts),iso_join_sources(Parts,Source).
 iso_source_parts(_,[],_,[]).
-iso_source_parts(Scope,[O|Os],HTTP,Parts) :-
+iso_source_parts(Scope,[O|Os],HT,Parts) :-
     (O=src_text(Text)->iso_text(Text,S),Parts=[S|Rest]
     ;O=src_list(Terms)->iso_list(Terms),iso_terms_source(Terms,S),Parts=[S|Rest]
     ;O=src_predicates(PIs)->iso_list(PIs),iso_export(Scope,PIs,Terms),iso_terms_source(Terms,S),Parts=[S|Rest]
-    ;O=src_uri(URI)->iso_uri(URI,U),iso_net_start(U,HTTP,R,Status),
+    ;O=src_uri(URI)->iso_source_uri(URI,U),iso_http_millis(HT,HTTP),iso_net_start(U,HTTP,R,Status),
         (Status==ok->true;throw(error(Status,rpc/3))),
         iso_net_wait(R,-1,S,Result),(Result==ok->true;throw(error(Result,rpc/3))),Parts=[S|Rest]
-    ;Parts=Rest),iso_source_parts(Scope,Os,HTTP,Rest).
+    ;Parts=Rest),iso_source_parts(Scope,Os,HT,Rest).
 iso_export(_,[],[]).
 iso_export(Scope,[PI|PIs],Terms) :-
     (nonvar(PI),PI=F/N,atom(F),integer(N),N>=0,N=<255->true
@@ -134,6 +141,9 @@ iso_range(I,Min,Max) :- iso_integer(I),(I>=Min,I=<Max->true;throw(error(domain_e
 iso_once(true) :- !.
 iso_once(false) :- !.
 iso_once(Value) :- throw(error(domain_error(boolean,Value),rpc/3)).
+iso_http_millis(T,HTTP) :-
+    (T==none->throw(error(type_error(number,T),rpc/3));true),
+    iso_millis(T,30000,Millis),HTTP is max(1,Millis).
 iso_millis(T,Default,Default) :- T==none,!.
 iso_millis(T,_,M) :-
     (number(T)->true;var(T)->throw(error(instantiation_error,rpc/3));throw(error(type_error(number,T),rpc/3))),

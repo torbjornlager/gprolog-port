@@ -1,5 +1,6 @@
 #include "protocol.h"
 #define _POSIX_C_SOURCE 200809L
+#define _DARWIN_C_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -13,11 +14,13 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include "memory.h"
 
-/* One supervised query lifetime. This private stdio transport will sit behind
- * /call; it does not yet implement HTTP, admission control or authentication. */
+/* One supervised query lifetime. The HTTP controller owns admission and the
+ * public protocol; this process owns worker budgets, pipes and cleanup. */
 static volatile sig_atomic_t interrupted;
 static pid_t child=-1;
+static uint64_t memory_limit;
 static void on_signal(int sig) { interrupted=sig; }
 static long long now_ms(void) {
   struct timespec t;
@@ -30,15 +33,33 @@ static void reap(void) {
   while (waitpid(child,NULL,0)<0 && errno==EINTR) {}
   child=-1;
 }
+static const char *memory_status(void) {
+  uint64_t own,worker;
+  if(!iso_memory_bytes(getpid(),&own))return "memory_monitor_failed";
+  if(!iso_memory_bytes(child,&worker)) {
+    /* A child which has already exited is not an accounting failure. Keeping
+     * ownership until waitpid also prevents sampling a reused process ID. */
+    int status;pid_t ended=waitpid(child,&status,WNOHANG);
+    if(ended==child){child=-1;return NULL;}
+    return "memory_monitor_failed";
+  }
+  return own>memory_limit || worker>memory_limit-own ? "memory_limit_exceeded" : NULL;
+}
 static void nonblock(int fd) {
   int flags=fcntl(fd,F_GETFL);
   if (flags<0 || fcntl(fd,F_SETFL,flags|O_NONBLOCK)<0) { perror("fcntl"); exit(2); }
 }
 /* Bound backpressure as well as computation. Never wait indefinitely for a
  * controller that stopped reading. No event can be guaranteed to a lost peer. */
+static void event(const char *reason);
 static int emit(const char *text,size_t n) {
+  size_t original=n;
   long long end=now_ms()+1000;
   while (n && !interrupted) {
+    /* Background RPC threads can allocate even while a controller is slow.
+     * Once output is partial we can only close it, but still reclaim memory. */
+    const char *memory_error=child>0?memory_status():NULL;
+    if(memory_error){reap();if(n==original)event(memory_error);return 0;}
     ssize_t sent=write(STDOUT_FILENO,text,n);
     if (sent>0) { text+=sent;n-=(size_t)sent;continue; }
     if (sent<0 && errno!=EAGAIN && errno!=EINTR) return 0;
@@ -75,11 +96,12 @@ static int valid_event(const char *s,size_t n) {
 int main(int argc,char **argv) {
   if (argc<3 || (argc-3)%2) {
     fprintf(stderr,"usage: %s 'query(Goal,Template)' PAGE_SIZE [--source FILE] [--shared-db FILE] "
-      "[--time-ms N] [--idle-ms N] [--heap-kb N] [--max-output N]\n",argv[0]);
+      "[--time-ms N] [--idle-ms N] [--heap-kb N] [--memory-mb N] [--max-output N]\n",argv[0]);
     return 2;
   }
   number(argv[2],0,ISO_MAX_PAGE);
   long time_limit=1000,idle_limit=30000,heap=16384,max_output=1048576;
+  memory_limit=(uint64_t)ISO_DEFAULT_MEMORY_MB*1024*1024;
   const char *source=NULL,*shared=NULL,*offset="0",*format="private";
   for (int i=3;i<argc;i+=2) {
     if (!strcmp(argv[i],"--source")) source=argv[i+1];
@@ -91,6 +113,7 @@ int main(int argc,char **argv) {
     else if (!strcmp(argv[i],"--time-ms")) time_limit=number(argv[i+1],1,3600000);
     else if (!strcmp(argv[i],"--idle-ms")) idle_limit=number(argv[i+1],1,3600000);
     else if (!strcmp(argv[i],"--heap-kb")) heap=number(argv[i+1],64,1048576);
+    else if (!strcmp(argv[i],"--memory-mb")) memory_limit=(uint64_t)number(argv[i+1],1,ISO_MAX_MEMORY_MB)*1024*1024;
     else if (!strcmp(argv[i],"--max-output")) max_output=number(argv[i+1],64,16777216);
     else { fprintf(stderr,"unknown option: %s\n",argv[i]);return 2; }
   }
@@ -136,11 +159,13 @@ int main(int argc,char **argv) {
   char command[32];int active=1,done=0,diagnostic_open=1;
   long long remaining=time_limit,started=now_ms(),idle_started=0;
   while (!done && !interrupted) {
+    const char *memory_error=child>0?memory_status():NULL;
+    if(memory_error){reap();event(memory_error);break;}
     long long left=active ? remaining-(now_ms()-started) : idle_limit-(now_ms()-idle_started);
     if (left<=0) { event(active?"time_limit_exceeded":"continuation_expired");break; }
     struct pollfd p[3]={{answers[0],POLLIN,0},{STDIN_FILENO,POLLIN,0},
                        {diagnostic_open?diagnostics[0]:-1,POLLIN,0}};
-    int rc=poll(p,3,left>50?50:(int)left);
+    int rc=poll(p,3,left>ISO_MEMORY_POLL_MS?ISO_MEMORY_POLL_MS:(int)left);
     if (rc<0) { if (errno==EINTR) continue;event("supervisor_io_error");break; }
     /* Consume a full response before commands that arrived at the same time. */
     if (p[0].revents) {
@@ -153,6 +178,8 @@ int main(int argc,char **argv) {
           frame[used]=0;
           if (!active || !valid_event(frame,used)) { event("worker_protocol_error");done=1;break; }
           int more=continuation(frame,used);
+          memory_error=child>0?memory_status():NULL;
+          if(memory_error){reap();event(memory_error);done=1;break;}
           remaining-=now_ms()-started;
           if (remaining<=0) { event("time_limit_exceeded");done=1;break; }
           frame[used++]='\n';

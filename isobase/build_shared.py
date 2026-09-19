@@ -77,7 +77,7 @@ def build(source,output):
         assert json.loads(result.stdout)=={'type':'success','answers':['ok'],'more':False},result.stdout
         (stage/'manifest.json').write_text(json.dumps({'mode':'compiled','arm64_comparison_fixes':fixes,'source_sha256':hashlib.sha256(data).hexdigest(),
             'source_bytes':len(data),'implementation_sha256':{f:hashlib.sha256((ROOT/f).read_bytes()).hexdigest()
-            for f in [*files,'compile_shared.pl','compile_shared.c','build_shared.py','http.c','supervisor.c','protocol.h']}},indent=2)+'\n')
+            for f in [*files,'compile_shared.pl','compile_shared.c','build_shared.py','http.c','supervisor.c','protocol.h','memory.h','memory_tree.h']}},indent=2)+'\n')
         # Rename publishes only a complete build; failures leave no output bundle.
         os.rename(stage,output)
     return output

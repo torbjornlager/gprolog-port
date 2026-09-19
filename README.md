@@ -13,7 +13,10 @@ boundaries a better fit than arbitrary long-lived actor goals.
 work. The project now has a loopback C HTTP server for `/call`, with submitted
 source, JSON bindings, Prolog-text responses, live pagination and query admission
 limits. C supervisors enforce execution/idle deadlines, stack and response
-bounds, and worker cleanup. The source and execution policy checks direct and
+bounds, a sampled combined worker/supervisor memory budget, and worker cleanup.
+Memory budgets default to 256 MiB per query and 1 GiB across the node, with
+admission checks and idle-first reclamation; see
+[MEMORY_LIMITS.md](isobase/MEMORY_LIMITS.md) for its scope and overshoot limitations. The source and execution policy checks direct and
 indirect calls. An owner-supplied `--shared-db FILE` is snapshotted and
 validated at startup. Request-local overrides remain separate from shared rules,
 and continuations retain the startup database until the node restarts.

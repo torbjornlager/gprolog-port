@@ -732,7 +732,7 @@
     "scope": "required",
     "implementation": "rpc.pl + transport.c",
     "status": "implemented; complete mode audit pending",
-    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "evidence": "rpc_option_cases.py; rpc_boundary_cases.py; rpc_source_tests.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
     "remaining": "All unsampled modes, error precedence, determinism and source interactions"
   },
   {
@@ -740,7 +740,7 @@
     "scope": "required",
     "implementation": "rpc.pl + transport.c",
     "status": "implemented; complete mode audit pending",
-    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "evidence": "rpc_option_cases.py; rpc_boundary_cases.py; rpc_source_tests.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
     "remaining": "All unsampled modes, error precedence, determinism and source interactions"
   },
   {
@@ -748,7 +748,7 @@
     "scope": "required",
     "implementation": "rpc.pl + transport.c",
     "status": "implemented; complete mode audit pending",
-    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "evidence": "rpc_option_cases.py; rpc_boundary_cases.py; rpc_source_tests.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
     "remaining": "All unsampled modes, error precedence, determinism and source interactions"
   },
   {
@@ -756,7 +756,7 @@
     "scope": "required",
     "implementation": "rpc.pl + transport.c",
     "status": "implemented; complete mode audit pending",
-    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "evidence": "rpc_option_cases.py; rpc_boundary_cases.py; rpc_source_tests.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
     "remaining": "All unsampled modes, error precedence, determinism and source interactions"
   },
   {
@@ -764,7 +764,7 @@
     "scope": "required",
     "implementation": "rpc.pl + transport.c",
     "status": "implemented; complete mode audit pending",
-    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "evidence": "rpc_option_cases.py; rpc_boundary_cases.py; rpc_source_tests.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
     "remaining": "All unsampled modes, error precedence, determinism and source interactions"
   },
   {
@@ -772,7 +772,7 @@
     "scope": "required",
     "implementation": "rpc.pl + transport.c",
     "status": "implemented; complete mode audit pending",
-    "evidence": "rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
+    "evidence": "rpc_option_cases.py; rpc_boundary_cases.py; rpc_source_tests.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md",
     "remaining": "All unsampled modes, error precedence, determinism and source interactions"
   },
   {

@@ -117,13 +117,24 @@ with tempfile.TemporaryDirectory(prefix='compiled-tests-') as temp:
         assert interpreted.call(f"rpc('{u}',price(widget,X))")['data']==[{'X':'100'}]
         assert native.call(f"rpc('{u}',q(X),[src_predicates([q/1])])",src_text='q(a). q(b).')['data']==[{'X':'a'},{'X':'b'}]
         assert native.call(f"promise('{u}',price(widget,X),R,[template(X)]),yield(R,success([Y],false))")['data'][0]['Y']=='100'
+        from rpc_source_tests import SourceServer
+        fixture=SourceServer()
+        try:
+            assert native.call(f"rpc('{u}',p(X),[src_uri('{fixture.uri}/source/')])")['data']==[{'X':'slash'}]
+            for options in ['timeout(bad),src_text(42)', 'src_text(42),http_timeout(bad)', 'http_timeout(none)']:
+                goal=f"catch(rpc('{u}',true,[{options}]),error(E,_),true)"
+                assert native.call(goal)==interpreted.call(goal)
+        finally:fixture.close()
         # Mixing an interpreted snapshot with a compiled bundle must fail at startup.
         source.write_text('other(x).')
         result=subprocess.run([str(bundle/'isobase-node'),'--port','0','--shared-db',str(source)],capture_output=True,text=True,timeout=5)
         assert result.returncode!=0 and not result.stdout and 'cannot_be_overlaid' in result.stderr,result
-        for test in ['tests.py','source_tests.py','policy_tests.py']:
+        for test in ['tests.py','source_tests.py','policy_tests.py','rpc_source_tests.py']:
             env=dict(os.environ,ISO_WORKER=str(bundle/'query-worker'))
             subprocess.run(['python3',test],check=True,env=env,cwd=ROOT)
+        env=dict(os.environ,ISO_NODE=str(bundle/'isobase-node'),ISO_SUPERVISOR=str(bundle/'query-supervisor'))
+        subprocess.run(['python3','memory_tests.py'],check=True,env=env,cwd=ROOT)
+        subprocess.run(['python3','memory_tests.py','--total-memory-mb','96'],check=True,env=env,cwd=ROOT)
     finally:
         native.close();interpreted.close();os.environ.pop('ISO_NODE',None)
     for index,bad in enumerate(['bad(.','p :- halt.',':- initialization(halt).','p :- missing.',

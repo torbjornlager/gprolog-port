@@ -1,5 +1,6 @@
 #include "protocol.h"
 #define _GNU_SOURCE
+#define _DARWIN_C_SOURCE
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -18,6 +19,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include "memory_tree.h"
 extern char **environ;
 #define MAX_QUERIES 32
 #define MAX_CLIENTS 32
@@ -26,7 +28,7 @@ extern char **environ;
 #define CONNECTION_IDLE_MS 10000
 #define HEADER_READ_MS 2000
 
-typedef struct { pid_t pid; int in,out,busy; long offset; long long expires; unsigned long long cached_order; char *key; char source[PATH_MAX]; } Query;
+typedef struct { pid_t pid; int in,out,busy,terminated; long offset; long long expires; unsigned long long cached_order; uint64_t memory; const char *abort_reason; char *key; char source[PATH_MAX]; } Query;
 typedef struct { char *goal,*template,*source,*format; long offset,limit; int once,timeout; } Request;
 static Query queries[MAX_QUERIES];
 /* Updated under mutex whenever a continuation is inserted/reinserted. */
@@ -34,6 +36,8 @@ static unsigned long long cache_order;
 static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t drained=PTHREAD_COND_INITIALIZER;
 static int clients[MAX_CLIENTS],client_count,max_queries=8,time_ms=1000,idle_ms=30000;
+static int memory_mb=ISO_DEFAULT_MEMORY_MB;
+static uint64_t total_memory=(uint64_t)ISO_DEFAULT_TOTAL_MEMORY_MB*1024*1024;
 static volatile sig_atomic_t stopping;
 static char supervisor[PATH_MAX],directory[PATH_MAX],shared_snapshot[PATH_MAX];
 static void stop(int sig) { (void)sig;stopping=1; }
@@ -92,10 +96,73 @@ static void finish_rejected_request(int fd) {
 /* Called with the registry lock, never while another thread owns this slot. */
 static void release(Query *q) {
   if(!q->pid)return;
-  close(q->in);close(q->out);kill(q->pid,SIGTERM);
-  while(waitpid(q->pid,NULL,0)<0 && errno==EINTR){}
+  close(q->in);close(q->out);
+  if(!q->terminated){kill(q->pid,SIGTERM);while(waitpid(q->pid,NULL,0)<0 && errno==EINTR){}}
   if(*q->source)unlink(q->source);
   free(q->key);memset(q,0,sizeof *q);
+}
+/* All memory-policy state is protected by mutex. An active slot and its pipe
+ * descriptors stay owned by its client until that client calls release. */
+static void abort_query(Query *q,const char *reason) {
+  if(q->terminated)return;
+  q->abort_reason=reason;
+  kill(q->pid,SIGTERM);
+  while(waitpid(q->pid,NULL,0)<0 && errno==EINTR){}
+  q->terminated=1;q->memory=0;
+}
+static Query *oldest_idle(Query *protected) {
+  Query *oldest=NULL;
+  for(int i=0;i<max_queries;i++) {
+    Query *q=&queries[i];
+    if(q->pid&&!q->busy&&q!=protected&&(!oldest||q->cached_order<oldest->cached_order))oldest=q;
+  }
+  return oldest;
+}
+static uint64_t admission_reserve(void) {
+  return (uint64_t)(memory_mb<ISO_ADMISSION_MEMORY_MB?memory_mb:ISO_ADMISSION_MEMORY_MB)*1024*1024;
+}
+static int sample_memory(uint64_t *actual,uint64_t *charged) {
+  if(!iso_memory_bytes(getpid(),actual))return 0;
+  *charged=*actual;
+  for(int i=0;i<max_queries;i++) {
+    Query *q=&queries[i];if(!q->pid||q->terminated)continue;
+    if(!iso_query_memory(q->pid,&q->memory))return 0;
+    uint64_t charge=q->memory>admission_reserve()?q->memory:admission_reserve();
+    if(q->memory>UINT64_MAX-*actual||charge>UINT64_MAX-*charged)return 0;
+    *actual+=q->memory;*charged+=charge;
+  }
+  return 1;
+}
+static const char *enforce_memory(void) {
+  for(;;) {
+    uint64_t actual,charged;
+    if(!sample_memory(&actual,&charged)) {
+      for(int i=0;i<max_queries;i++)if(queries[i].pid) {
+        if(queries[i].busy)abort_query(&queries[i],"memory_monitor_failed");else release(&queries[i]);
+      }
+      return "memory_monitor_failed";
+    }
+    if(actual<=total_memory)return NULL;
+    Query *victim=oldest_idle(NULL);
+    if(victim){release(victim);continue;}
+    for(int i=0;i<max_queries;i++) {
+      Query *q=&queries[i];
+      if(q->pid&&q->busy&&!q->terminated&&(!victim||q->memory>victim->memory))victim=q;
+    }
+    if(!victim)return "total_memory_limit_exceeded";
+    abort_query(victim,"total_memory_limit_exceeded");
+  }
+}
+static const char *admit_memory(Query *resume) {
+  for(;;) {
+    uint64_t actual,charged;
+    if(!sample_memory(&actual,&charged))return "memory_monitor_failed";
+    uint64_t reserve=resume?0:admission_reserve();
+    if(charged<=total_memory && reserve<=total_memory-charged)return NULL;
+    Query *victim=oldest_idle(resume);
+    if(!victim)return "total_memory_limit_exceeded";
+    release(victim);
+  }
 }
 static void reply(int fd,int code,const char *format,const char *body) {
   char h[512];int n=snprintf(h,sizeof h,"HTTP/1.1 %d %s\r\nContent-Type: %s; charset=UTF-8\r\nContent-Length: %zu\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n\r\n",code,code==200?"OK":code==503?"Service Unavailable":code==404?"Not Found":code==405?"Method Not Allowed":code==408?"Request Timeout":code==431?"Request Header Fields Too Large":"Bad Request",!strcmp(format,"prolog")?"text/plain":"application/json",strlen(body));
@@ -164,11 +231,12 @@ static int start_query(Query *q,Request *r,char *key) {
     close(fd);
   }
   char *term=NULL;if(asprintf(&term,"query((%s),(%s))",r->goal,r->template)<0)goto failed;
-  char limit[32],offset[32],budget[32],idle[32];
+  char limit[32],offset[32],budget[32],idle[32],memory[32];
   snprintf(limit,sizeof limit,"%ld",r->limit);snprintf(offset,sizeof offset,"%ld",r->offset);
   snprintf(budget,sizeof budget,"%d",time_ms);snprintf(idle,sizeof idle,"%d",idle_ms+250);
-  char *args[]={supervisor,term,limit,"--offset",offset,"--format",r->format,"--time-ms",budget,"--idle-ms",idle,NULL,NULL,NULL,NULL,NULL};
-  int next=11;
+  snprintf(memory,sizeof memory,"%d",memory_mb);
+  char *args[]={supervisor,term,limit,"--offset",offset,"--format",r->format,"--time-ms",budget,"--idle-ms",idle,"--memory-mb",memory,NULL,NULL,NULL,NULL,NULL};
+  int next=13;
   if(*r->source){args[next++]="--source";args[next++]=q->source;}
   if(*shared_snapshot){args[next++]="--shared-db";args[next++]=shared_snapshot;}
   args[next]=NULL;
@@ -184,23 +252,28 @@ failed:
 }
 static int validate_shared(void) {
   Request r={.goal="true",.template="ok",.source="",.format="prolog",.limit=1};
-  Query check={0};char *key=strdup("startup-validation");
+  Query *check=&queries[0];char *key=strdup("startup-validation");
   if(!key)return 0;
-  if(!start_query(&check,&r,key)){free(key);return 0;}
+  const char *reason=admit_memory(NULL);
+  if(reason){fprintf(stderr,"Shared database validation failed: %s\n",reason);free(key);return 0;}
+  if(!start_query(check,&r,key)){free(key);return 0;}
   char result[2048];size_t used=0;long long end=now()+time_ms+1000;
   while(used<sizeof result-1&&!stopping) {
+    reason=enforce_memory();if(reason||check->abort_reason)break;
     long long left=end-now();if(left<=0)break;
-    struct pollfd p={check.out,POLLIN,0};int status=poll(&p,1,(int)left);
+    struct pollfd p={check->out,POLLIN,0};int status=poll(&p,1,left>ISO_MEMORY_POLL_MS?ISO_MEMORY_POLL_MS:(int)left);
     if(status<0&&errno==EINTR)continue;
-    if(status<=0)break;
-    ssize_t n=read(check.out,result+used,sizeof result-1-used);
+    if(status<0)break;
+    if(status==0)continue;
+    ssize_t n=read(check->out,result+used,sizeof result-1-used);
     if(n<=0)break;
     used+=(size_t)n;if(memchr(result,'\n',used))break;
   }
+  reason=enforce_memory();if(check->abort_reason)reason=check->abort_reason;
   result[used]=0;
-  int good=!strcmp(result,"{\"type\":\"success\",\"answers\":[\"ok\"],\"more\":false}\n");
-  if(!good)fprintf(stderr,"Shared database validation failed: %s\n",used?result:"no worker response");
-  release(&check);return good;
+  int good=!reason&&!strcmp(result,"{\"type\":\"success\",\"answers\":[\"ok\"],\"more\":false}\n");
+  if(!good)fprintf(stderr,"Shared database validation failed: %s\n",reason?reason:used?result:"no worker response");
+  release(check);return good;
 }
 /* JSON strings in the private protocol only use escapes emitted by worker.c. */
 static char *json_text(const char **p) {
@@ -242,7 +315,11 @@ static void call_request(int fd,Request *r) {
   char *key=key_for(r);if(!key){error_reply(fd,503,r->format,"allocation_failed");return;}
   pthread_mutex_lock(&mutex);Query *q=NULL;
   for(int i=0;i<max_queries;i++)if(queries[i].pid&&!queries[i].busy&&queries[i].expires<=now())release(&queries[i]);
+  const char *reason=enforce_memory();
+  if(reason){pthread_mutex_unlock(&mutex);free(key);error_reply(fd,503,r->format,reason);return;}
   for(int i=0;i<max_queries;i++)if(queries[i].pid&&!queries[i].busy&&queries[i].offset==r->offset&&!strcmp(queries[i].key,key)){q=&queries[i];break;}
+  reason=admit_memory(q);
+  if(reason){pthread_mutex_unlock(&mutex);free(key);error_reply(fd,503,r->format,reason);return;}
   if(q) { free(key);
     /* The demonstrator treats zero on a resumed page as its default limit. */
     if(r->limit==0)r->limit=ISO_MAX_PAGE;
@@ -278,10 +355,11 @@ static void call_request(int fd,Request *r) {
   }
   int more=0;char *body=complete?public_body(line,r->format,r->once,&more):NULL;
   pthread_mutex_lock(&mutex);
-  if(body&&more&&!abandoned&&!stopping){q->busy=0;q->offset=r->offset+r->limit;q->expires=now()+idle_ms;q->cached_order=++cache_order;}
+  enforce_memory();reason=q->abort_reason;
+  if(!reason&&body&&more&&!abandoned&&!stopping){q->busy=0;q->offset=r->offset+r->limit;q->expires=now()+idle_ms;q->cached_order=++cache_order;}
   else release(q);
   pthread_mutex_unlock(&mutex);
-  if(!abandoned){if(body)reply(fd,200,r->format,body);else error_reply(fd,200,r->format,"timeout_or_worker_failure");}
+  if(!abandoned){if(reason)error_reply(fd,200,r->format,reason);else if(body)reply(fd,200,r->format,body);else error_reply(fd,200,r->format,"timeout_or_worker_failure");}
   free(body);free(line);
 }
 static void *client(void *arg) {
@@ -341,6 +419,8 @@ int main(int argc,char **argv) {
     if(!strcmp(argv[i],"--port")&&n<=65535)port=n;
     else if(!strcmp(argv[i],"--max-queries")&&n>=1&&n<=MAX_QUERIES)max_queries=(int)n;
     else if(!strcmp(argv[i],"--time-ms")&&n>=1)time_ms=(int)n;
+    else if(!strcmp(argv[i],"--memory-mb")&&n>=1&&n<=ISO_MAX_MEMORY_MB)memory_mb=(int)n;
+    else if(!strcmp(argv[i],"--total-memory-mb")&&n>=1&&n<=ISO_MAX_MEMORY_MB)total_memory=(uint64_t)n*1024*1024;
     else if(!strcmp(argv[i],"--idle-ms")&&n>=1)idle_ms=(int)n;else return 2;}
   if(strlen(argv[0])+18>=sizeof supervisor)return 2;
   strcpy(supervisor,argv[0]);char *slash=strrchr(supervisor,'/');if(slash)strcpy(slash+1,"query-supervisor");else strcpy(supervisor,"./query-supervisor");
@@ -351,6 +431,8 @@ int main(int argc,char **argv) {
   }
   for(int i=0;i<MAX_CLIENTS;i++)clients[i]=-1;
   signal(SIGPIPE,SIG_IGN);struct sigaction sa;memset(&sa,0,sizeof sa);sa.sa_handler=stop;sigaction(SIGTERM,&sa,NULL);sigaction(SIGINT,&sa,NULL);
+  const char *memory_error=enforce_memory();
+  if(memory_error){fprintf(stderr,"Cannot start node: %s\n",memory_error);return 2;}
   if(shared_file&&!validate_shared())return 2;
   int listener=socket(AF_INET,SOCK_STREAM,0);if(listener<0)return 2;cloexec(listener);
   int one=1;setsockopt(listener,SOL_SOCKET,SO_REUSEADDR,&one,sizeof one);
@@ -360,7 +442,7 @@ int main(int argc,char **argv) {
   printf("{\"port\":%u,\"address\":\"127.0.0.1\"}\n",ntohs(address.sin_port));fflush(stdout);
   while(!stopping) {
     struct pollfd p={listener,POLLIN,0};int rc=poll(&p,1,50);
-    pthread_mutex_lock(&mutex);for(int i=0;i<max_queries;i++)if(queries[i].pid&&!queries[i].busy&&queries[i].expires<=now())release(&queries[i]);pthread_mutex_unlock(&mutex);
+    pthread_mutex_lock(&mutex);for(int i=0;i<max_queries;i++)if(queries[i].pid&&!queries[i].busy&&queries[i].expires<=now())release(&queries[i]);enforce_memory();pthread_mutex_unlock(&mutex);
     if(rc<=0)continue;pthread_mutex_lock(&mutex);int fd=accept(listener,NULL,NULL);if(fd<0){pthread_mutex_unlock(&mutex);continue;}cloexec(fd);
     struct timeval timeout={2,0};setsockopt(fd,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof timeout);setsockopt(fd,SOL_SOCKET,SO_SNDTIMEO,&timeout,sizeof timeout);
     int index;for(index=0;index<MAX_CLIENTS;index++)if(clients[index]<0)break;

@@ -107,3 +107,51 @@ Two aliasing checks cover goal capture relative to option normalization. Like SW
 `rpc/3` captures the goal/template before `once(O)` can bind a shared variable;
 `promise/4` captures after normalization. GNU preserves the former using a private
 copy for serialization while keeping the original template for local unification.
+
+## URI, validation-order and source-failure audit
+
+`rpc_boundary_cases.py` adds 58 cases: 41 SWI comparisons and 17 explicit
+GNU boundaries. URI failure comparisons classify success versus caught error;
+they do not require identical HTTP diagnostics. Both clients use the same
+loopback GNU target and a disposable HTTP source fixture.
+
+Three corrections follow from the initial eight failing samples:
+
+- Source URLs preserve their trailing slash, percent escapes and query string.
+  `/source/` must not silently become `/source`. Only node base URLs have their
+  final slash removed before appending `/call`.
+- Invalid remote `timeout` values are checked before source composition or I/O.
+  Local source-conversion errors precede `http_timeout` validation, matching the
+  sampled SWI order. For a source download, GNU checks `http_timeout` before
+  starting that transfer, since it also bounds source fetching.
+- `http_timeout(none)` raises `type_error(number,none)`. The `none` sentinel
+  still applies to remote `timeout` and yield waiting; it is not an HTTP timeout.
+
+The batch records these boundaries without weakening transport policy:
+
+- Unknown options, including HTTP headers, methods, redirect switches and TLS
+  verification hooks, raise `domain_error(rpc_option,Option)`. SWI forwards
+  non-internal options to its HTTP library. GNU keeps owner-controlled TLS trust.
+- GNU rejects timeouts above 300 seconds. This supplements the earlier negative
+  timeout checks; fractional and exactly 300-second values are sampled too.
+- GNU does not resolve `localhost`, `local` or `self` as implicit node aliases.
+  Use an explicit HTTP(S) address or `Host:Port`. GNU also accepts character/code
+  lists for addresses, where the sampled SWI client does not.
+- GNU appends `/call` to a node path prefix; SWI replaces the path. Query strings
+  and fragments in node base addresses remain incompatible; use a base address
+  without them. These restrictions do not apply to an exact `src_uri` URL.
+- An alphabetic port produces a catchable GNU transport error; the sampled SWI
+  client fails silently. Other malformed-address checks compare rejection only.
+
+`rpc_source_tests.py` adds 11 GNU checks, separate from the differential corpus.
+404, deadline, oversized-body and embedded-NUL failures stop ordered source
+composition before the next fetch or final RPC. For each failure kind, 24 attempts
+in one worker exceed the 16-slot transport pool, followed by a successful RPC.
+Three further checks assert that invalid deadlines perform no source requests.
+Compiled-bundle tests repeat the source failure checks and exercise exact source
+URLs and validation ordering. `make rpc-test` includes the new fixture suite.
+
+URI parsing is not exhaustively equivalent: IPv6, userinfo, scheme case, relative
+source references and all malformed forms remain unaudited. Exact request-size
+edges, aggregate multi-source limits, all validation combinations and TLS
+version/cipher/revocation behavior remain open.

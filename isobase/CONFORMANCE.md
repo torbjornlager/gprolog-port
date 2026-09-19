@@ -32,7 +32,7 @@ recorded below rather than copied into this runtime.
 | RPC, promises, yield | Three interoperation directions, source transfer, pagination, non-consuming wait timeout, cancellation; references are opaque ten-digit integers scoped to one query |
 | HTTP answers | Goal/template sharing, Prolog and JSON formats, variable visibility including anonymous helper goals, default limit 10,000,000,000 |
 | Pagination/cache | Live continuations, offset replay after miss, oldest-idle eviction, active-query protection, idle expiry and zero-sized pages |
-| Lifecycle/resource behavior | Query deadlines, stack/output bounds, disconnects, worker reaping; 400 queries / 800 pages with eight concurrent clients |
+| Lifecycle/resource behavior | Query deadlines, stack/output bounds, sampled worker/supervisor memory limits, disconnects, worker reaping; 400 queries / 800 pages with eight concurrent clients |
 
 The zero-limit behavior is deliberately the observed reference behavior: a fresh
 zero-limit query returns `failure` without executing its goal; zero on a live
@@ -294,5 +294,59 @@ unknown-option and validation-precedence equivalence is not established.
 
 `crypto_data_hash/3` is catalogued as a **local extension**, not part of the ISO
 prologue; it remains unavailable. Actor, session and general I/O predicates stay
-outside ISOBASE. Authentication and total-process-memory enforcement are separate
-requirements before public deployment; the development node remains loopback-only.
+outside ISOBASE. Authentication and hard OS memory containment remain separate
+requirements before public deployment. The sampled query and node-wide memory
+policies are documented in MEMORY_LIMITS.md; the node remains loopback-only.
+
+## URI, validation-order and source-failure audit
+
+`rpc_boundary_cases.py` adds 58 cases (41 SWI comparisons and 17 explicit host
+boundaries). The initial 44 exposed eight differences, corrected by preserving
+exact source URLs, validating remote timeouts before source composition, aligning
+sampled source/transport error precedence and rejecting `http_timeout(none)`.
+The expanded cases record strict option policy, timeout caps, URI aliases,
+text-list addresses, path/query/fragment behavior and malformed-port handling.
+URI rejection checks compare outcomes rather than exact HTTP diagnostics.
+
+The corpus now contains 1277 cases: 1233 SWI comparisons, two GNU-only guard
+checks and 42 explicit host boundaries. `rpc_source_tests.py` separately adds
+11 source failure/order/resource checks, also run with a compiled worker.
+See RPC_BOUNDARY.md for their scope and the remaining URI/transport limitations.
+
+## Sampled query-memory enforcement
+
+The node and supervisor now accept `--memory-mb` (default 256 MiB), accounting
+for the worker plus supervisor through macOS physical footprint. The supervisor
+checks active execution, source loading and idle continuations, kills and reaps
+an over-budget worker, then returns `memory_limit_exceeded`. Accounting failure
+fails closed. The Linux RSS fallback remains unvalidated on this host.
+
+`memory_tests.py` checks active/idle allocation, real atom growth, startup budget
+forwarding, invalid settings, injected accounting failure, concurrent healthy
+pagination, expiry and cleanup. A 60-second Apple Silicon run completed 752
+memory-limit terminations and 29,486 healthy pages with no retained query
+processes. See MEMORY_LIMITS.md for measurements, compiled/sanitizer coverage and
+overshoot limitations. This per-query policy is not kernel-enforced containment
+and does not increase the predicate-conformance case count.
+
+
+## Aggregate memory admission and reclamation
+
+The node adds `--total-memory-mb`, default 1024 MiB, counting controller,
+supervisor and worker footprints. Admission reserves at least 16 MiB per query
+(capped by the per-query limit), evicts idle entries in cache order and returns
+HTTP 503 when headroom remains insufficient. Actual excess reclaims idle entries
+before terminating largest active queries with `total_memory_limit_exceeded`.
+Accounting failure fails closed, and startup snapshot validation is included.
+
+`total_memory_tests.py` checks order, continuation identity/replay, active
+protection, termination, both response formats, startup/failure behavior and
+cleanup. The real mixed-load test and compiled bundles exercise concurrent atom
+growth alongside healthy pagination. MEMORY_LIMITS.md records the policy and
+measurements. Sampling can overshoot; this is not a hard OS memory ceiling and
+does not add predicate-equivalence cases.
+
+The 60-second aggregate-pressure run at 96 MiB recorded 944 terminations,
+4,320 admission rejections and 13,294 healthy pages, with no retained sampled
+query processes or source files. The sampled aggregate peak was 127.3 MiB;
+this explicitly demonstrates the documented overshoot rather than a hard bound.

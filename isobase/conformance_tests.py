@@ -110,12 +110,16 @@ from higher_arithmetic_cases import add_cases as add_higher_arithmetic_cases
 add_higher_arithmetic_cases(case)
 from rpc_option_cases import add_cases as add_rpc_option_cases
 add_rpc_option_cases(case)
+from rpc_boundary_cases import add_cases as add_rpc_boundary_cases
+add_rpc_boundary_cases(case)
 
 # Host capabilities intentionally differ from SWI; verify the GNU declaration.
 CAPABILITIES="runtime_property(implementation(gnu_native)),runtime_property(persistent(false)),runtime_property(inbound_addressable(false)),runtime_property(dom(false)),runtime_property(actor_isolation(os_process)),runtime_property(hard_termination(true)),findall(P,runtime_property(P),Ps),length(Ps,6)"
 
 def main():
+    from rpc_source_tests import SourceServer
     processes=[];results=[]
+    source_server=SourceServer()
     with tempfile.TemporaryDirectory(prefix='isobase-contract-') as d, tempfile.TemporaryFile(mode='w+') as log:
         try:
             with socket.socket() as sock:sock.bind(('127.0.0.1',0));sp=sock.getsockname()[1]
@@ -141,7 +145,7 @@ def main():
             for row in CASES:
                 params={k:v for k,v in row.items() if k not in ('family','expected_gnu')};params.update(format='prolog');params.setdefault('limit',100)
                 # Both clients use the same disposable target for RPC option comparisons.
-                params={k:(v.replace('__RPC_TARGET__',f'http://127.0.0.1:{gp}').replace('__RPC_PORT__',str(gp)) if isinstance(v,str) else v) for k,v in params.items()}
+                params={k:(v.replace('__RPC_TARGET__',f'http://127.0.0.1:{gp}').replace('__RPC_PORT__',str(gp)).replace('__SOURCE_TARGET__',source_server.uri) if isinstance(v,str) else v) for k,v in params.items()}
                 try:
                     reference=request(sp,params) if row['family']!='guard_regression' else 'not_run_reference_guard_gap'
                     actual=request(gp,params)
@@ -164,6 +168,7 @@ def main():
             for row in failures:print(json.dumps(row))
             assert not failures,f'{len(failures)} contract differences; see {output}'
         finally:
+            source_server.close()
             for p in processes:p.terminate()
             for p in processes:
                 try:p.wait(timeout=5)

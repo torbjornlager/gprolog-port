@@ -71,7 +71,7 @@ for line in section.splitlines():
             elif pi in list_batch:
                 status='implemented; selected list-mode audit complete'
                 evidence='list_mode_cases.py (remainder, improper/cyclic lists, integer relations)'
-            elif n in ('rpc','promise','yield'):evidence='rpc_option_cases.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md'
+            elif n in ('rpc','promise','yield'):evidence='rpc_option_cases.py; rpc_boundary_cases.py; rpc_source_tests.py; rpc_tests.py; https_tests.py; RPC_BOUNDARY.md'
             elif n=='phrase':
                 status='implemented; selected DCG-mode audit complete'
                 evidence='dcg_mode_cases.py; mode_cases.py; policy_tests.py'
@@ -110,9 +110,11 @@ lines+=['','## Separate obligations','',
     '`higher_arithmetic_cases.py` adds 100 SWI comparisons. The initial 75 exposed four arithmetic differences and a Prolog response precedence bug. The fixes cover right-to-left expression-argument evaluation, half-away-from-zero rounding, zero raised to a negative power, signed-zero atan2 and list-element serialization of templates. Higher-order aliasing, mismatched lists, empty lists and grammar closures are sampled; this is not exhaustive context or arithmetic coverage.',
     '', '## Eighth mode-audit batch','',
     '`rpc_option_cases.py` adds 61 checks using one disposable GNU target for both clients: 59 SWI comparisons and two timeout-policy boundaries. Samples cover duplicate options, variable-valued once/timeout, source composition, exports, isolation and promise offsets/templates. GNU now treats unbound remote timeout as omitted and aligns sampled once binding; SWI source composition now preserves option order as documented. Negative timeouts remain rejected by GNU. URI aliases, unknown options, all validation-order combinations and transport limits remain open.',
+    '', '## Ninth mode-audit batch','',
+    '`rpc_boundary_cases.py` adds 58 checks: 41 SWI comparisons and 17 explicit boundaries. Exact source URLs, sampled timeout/source error ordering and HTTP timeout modes are corrected. URI aliases, path/query/fragment behavior, unknown options and timeout caps are recorded separately. Eleven source failure/order/slot-recovery checks also run with a compiled worker. See RPC_BOUNDARY.md for remaining URI forms, transport bounds and validation combinations.',
     '', '## Next batches','',
-    '1. Remaining RPC URI forms, validation-order combinations and transport-option boundaries.',
-    '2. Remaining higher-order/DCG module contexts and arithmetic boundaries.',
+    '1. Remaining higher-order/DCG module contexts and arithmetic boundaries.',
+    '2. Remaining URI lexical forms, exact transport-size boundaries and validation-order combinations.',
     '3. Extend term/rational-tree and numeric coverage beyond the selected samples and resolve the documented host boundaries.', '']
 (ROOT/'PREDICATE_CHECKLIST.md').write_text('\n'.join(lines))
 print(f'Inventory: {required} required entries, {len(rows)-required} optional; no complete-conformance claims')
