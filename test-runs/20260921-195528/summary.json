@@ -1,0 +1,115 @@
+[
+  {
+    "suite": "conformance",
+    "command": [
+      "make",
+      "-C",
+      "isobase",
+      "conformance-test"
+    ],
+    "exit_code": 2,
+    "seconds": 42.08
+  },
+  {
+    "suite": "regression",
+    "command": [
+      "make",
+      "-C",
+      "isobase",
+      "test"
+    ],
+    "exit_code": 0,
+    "seconds": 34.51
+  },
+  {
+    "suite": "rpc",
+    "command": [
+      "make",
+      "-C",
+      "isobase",
+      "rpc-test"
+    ],
+    "exit_code": 2,
+    "seconds": 1.21
+  },
+  {
+    "suite": "compiled",
+    "command": [
+      "make",
+      "-C",
+      "isobase",
+      "compiled-test"
+    ],
+    "exit_code": 0,
+    "seconds": 23.99
+  },
+  {
+    "suite": "aggregate-memory",
+    "command": [
+      "make",
+      "-C",
+      "isobase",
+      "total-memory-test"
+    ],
+    "exit_code": 0,
+    "seconds": 13.7
+  },
+  {
+    "suite": "embedding",
+    "command": [
+      "make",
+      "-C",
+      "experiment",
+      "test"
+    ],
+    "exit_code": 0,
+    "seconds": 0.48
+  },
+  {
+    "suite": "upstream",
+    "command": [
+      "make",
+      "-C",
+      "gprolog/src",
+      "check"
+    ],
+    "exit_code": 0,
+    "seconds": 6.27
+  },
+  {
+    "suite": "differential",
+    "command": [
+      "python3",
+      "differential_tests.py"
+    ],
+    "exit_code": 1,
+    "seconds": 0.98
+  },
+  {
+    "suite": "endurance",
+    "command": [
+      "python3",
+      "endurance_tests.py"
+    ],
+    "exit_code": 0,
+    "seconds": 0.84
+  },
+  {
+    "suite": "rpc-source",
+    "command": [
+      "python3",
+      "rpc_source_tests.py"
+    ],
+    "exit_code": 0,
+    "seconds": 1.29
+  },
+  {
+    "suite": "https",
+    "command": [
+      "python3",
+      "https_tests.py"
+    ],
+    "exit_code": 0,
+    "seconds": 3.72
+  }
+]
