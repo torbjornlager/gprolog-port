@@ -96,7 +96,7 @@ def supervisor_checks(directory):
             p=subprocess.run([str(exe),*args,'--memory-mb',value],capture_output=True,timeout=3)
             assert p.returncode==2,(exe,value,p.returncode)
     # The node must forward the budget to its startup snapshot validator too.
-    p=subprocess.run([str(ROOT/'isobase-node'),'--port','0','--shared-db',str(src),'--memory-mb','1'],capture_output=True,text=True,timeout=5)
+    p=subprocess.run([str(ROOT/'isobase-node'),'--auth','open','--port','0','--shared-db',str(src),'--memory-mb','1'],capture_output=True,text=True,timeout=5)
     assert p.returncode==2 and not p.stdout and 'memory_limit_exceeded' in p.stderr,p
     # Accounting failure must not silently disable the limit.
     (directory/'memory.h').write_text('#include <stdint.h>\n#define ISO_MEMORY_POLL_MS 50\nstatic int iso_memory_bytes(pid_t pid,uint64_t *bytes){(void)pid;(void)bytes;return 0;}\n')
@@ -114,7 +114,7 @@ def soak(probe,seconds,total_mb=None):
     directories_before=set(Path('/tmp').glob('gprolog-http-*'))
     directory=None
     limit=256 if total_mb else 24
-    args=[os.environ.get('ISO_NODE',str(ROOT/'isobase-node')),'--port','0','--max-queries','8','--memory-mb',str(limit),'--time-ms','5000','--idle-ms','150']
+    args=[os.environ.get('ISO_NODE',str(ROOT/'isobase-node')),'--auth','open','--port','0','--max-queries','8','--memory-mb',str(limit),'--time-ms','5000','--idle-ms','150']
     if total_mb:args+=['--total-memory-mb',str(total_mb)]
     p=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     sampling=threading.Event();samples=[];observed=set();sample_errors=[];rejections=[]

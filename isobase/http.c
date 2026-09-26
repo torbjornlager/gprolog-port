@@ -20,6 +20,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "memory_tree.h"
+#include "http_security.h"
 extern char **environ;
 #define MAX_QUERIES 32
 #define MAX_CLIENTS 32
@@ -165,7 +166,7 @@ static const char *admit_memory(Query *resume) {
   }
 }
 static void reply(int fd,int code,const char *format,const char *body) {
-  char h[512];int n=snprintf(h,sizeof h,"HTTP/1.1 %d %s\r\nContent-Type: %s; charset=UTF-8\r\nContent-Length: %zu\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n\r\n",code,code==200?"OK":code==503?"Service Unavailable":code==404?"Not Found":code==405?"Method Not Allowed":code==408?"Request Timeout":code==431?"Request Header Fields Too Large":"Bad Request",!strcmp(format,"prolog")?"text/plain":"application/json",strlen(body));
+  char h[512];int n=snprintf(h,sizeof h,"HTTP/1.1 %d %s\r\nContent-Type: %s; charset=UTF-8\r\nContent-Length: %zu\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n%s\r\n",code,code==401?"Unauthorized":code==403?"Forbidden":code==200?"OK":code==503?"Service Unavailable":code==404?"Not Found":code==405?"Method Not Allowed":code==408?"Request Timeout":code==431?"Request Header Fields Too Large":"Bad Request",!strcmp(format,"prolog")?"text/plain":"application/json",strlen(body),code==401?"WWW-Authenticate: Bearer realm=\"isobase\"\r\n":"");
   if(write_all(fd,h,(size_t)n))write_all(fd,body,strlen(body));
 }
 static void error_reply(int fd,int code,const char *format,const char *reason) {
@@ -366,7 +367,7 @@ static void *client(void *arg) {
   int index=(int)(long)arg,fd=clients[index];
   char *b=malloc(REQUEST_CAP+1);
   size_t used=0;
-  int ready=0,timed_out=0;
+  int ready=0,timed_out=0,invalid_bytes=0;
   long long deadline=now()+CONNECTION_IDLE_MS;
   while(b&&used<REQUEST_CAP&&!stopping) {
     long long left=deadline-now();
@@ -382,10 +383,12 @@ static void *client(void *arg) {
     /* A speculative connection is not an incomplete HTTP request. Start
      * the absolute header deadline only when the first bytes arrive. */
     if(!used)deadline=now()+HEADER_READ_MS;
+    if(memchr(b+used,0,(size_t)n)){invalid_bytes=1;break;}
     used+=(size_t)n;b[used]=0;
     if(strstr(b,"\r\n\r\n")){ready=1;break;}
   }
   if(!b)error_reply(fd,503,"json","allocation_failed");
+  else if(invalid_bytes){error_reply(fd,400,"json","invalid_headers");finish_rejected_request(fd);}
   else if(!ready) {
     /* Never queue an unsolicited error on an idle preconnection: a browser
      * could later mistake it for the response to a request it just sent. */
@@ -397,8 +400,13 @@ static void *client(void *arg) {
       else error_reply(fd,timed_out?408:400,"json","incomplete_request");
     }
   } else {
-    char *end=strstr(b,"\r\n");*end=0;char *space=strchr(b,' '),*last=space?strchr(space+1,' '):NULL;
-    if(!space||!last)error_reply(fd,400,"json","invalid_request");
+    char *header_end=strstr(b,"\r\n\r\n");
+    char *end=strstr(b,"\r\n");
+    const char *reason="invalid_headers";
+    int denied=(header_end+4!=b+used)?400:check_headers(end+2,&reason);
+    *end=0;char *space=strchr(b,' '),*last=space?strchr(space+1,' '):NULL;
+    if(denied){error_reply(fd,denied,"json",reason);finish_rejected_request(fd);}
+    else if(!space||!last)error_reply(fd,400,"json","invalid_request");
     else {*space++=0;*last++=0;
       if(strcmp(b,"GET"))error_reply(fd,405,"json","get_required");
       else if(strcmp(last,"HTTP/1.1")&&strcmp(last,"HTTP/1.0"))error_reply(fd,400,"json","invalid_http_version");
@@ -412,8 +420,11 @@ static void *client(void *arg) {
   free(b);pthread_mutex_lock(&mutex);close(fd);clients[index]=-1;client_count--;pthread_cond_signal(&drained);pthread_mutex_unlock(&mutex);return NULL;
 }
 int main(int argc,char **argv) {
-  long port=8081;const char *shared_file=NULL;
+  long port=8081;const char *shared_file=NULL,*token_file=NULL;int auth_mode=0;
   for(int i=1;i<argc;i+=2){long n;if(i+1>=argc)return 2;
+    if(!strcmp(argv[i],"--auth-token-file")){if(auth_mode)return 2;auth_mode=1;token_file=argv[i+1];continue;}
+    if(!strcmp(argv[i],"--auth")){if(auth_mode||strcmp(argv[i+1],"open"))return 2;auth_mode=2;continue;}
+    if(!strcmp(argv[i],"--outbound-policy")){if(setenv("ISO_OUTBOUND_POLICY",argv[i+1],1))return 2;continue;}
     if(!strcmp(argv[i],"--shared-db")){shared_file=argv[i+1];continue;}
     if(!integer(argv[i+1],0,3600000,&n))return 2;
     if(!strcmp(argv[i],"--port")&&n<=65535)port=n;
@@ -422,6 +433,8 @@ int main(int argc,char **argv) {
     else if(!strcmp(argv[i],"--memory-mb")&&n>=1&&n<=ISO_MAX_MEMORY_MB)memory_mb=(int)n;
     else if(!strcmp(argv[i],"--total-memory-mb")&&n>=1&&n<=ISO_MAX_MEMORY_MB)total_memory=(uint64_t)n*1024*1024;
     else if(!strcmp(argv[i],"--idle-ms")&&n>=1)idle_ms=(int)n;else return 2;}
+  if(!auth_mode){fprintf(stderr,"Choose --auth-token-file FILE or explicit trusted-development --auth open\n");return 2;}
+  if(token_file&&!load_owner_token(token_file)){fprintf(stderr,"Invalid authentication file: require owner-only regular file containing 32-256 token characters\n");return 2;}
   if(strlen(argv[0])+18>=sizeof supervisor)return 2;
   strcpy(supervisor,argv[0]);char *slash=strrchr(supervisor,'/');if(slash)strcpy(slash+1,"query-supervisor");else strcpy(supervisor,"./query-supervisor");
   strcpy(directory,"/tmp/gprolog-http-XXXXXX");if(!mkdtemp(directory)){perror("mkdtemp");return 2;}
@@ -439,6 +452,7 @@ int main(int argc,char **argv) {
   struct sockaddr_in address;memset(&address,0,sizeof address);address.sin_family=AF_INET;address.sin_addr.s_addr=htonl(INADDR_LOOPBACK);address.sin_port=htons((unsigned short)port);
   if(bind(listener,(struct sockaddr *)&address,sizeof address)||listen(listener,32)){perror("listen");close(listener);rmdir(directory);return 2;}
   socklen_t size=sizeof address;getsockname(listener,(struct sockaddr *)&address,&size);
+  bound_port=ntohs(address.sin_port);
   printf("{\"port\":%u,\"address\":\"127.0.0.1\"}\n",ntohs(address.sin_port));fflush(stdout);
   while(!stopping) {
     struct pollfd p={listener,POLLIN,0};int rc=poll(&p,1,50);

@@ -7,7 +7,7 @@ query lifetime, including source loading, startup shared-database validation,
 compiled bundles, pagination and idle continuations.
 
 ```
-./isobase-node --port 8081 --max-queries 8 --memory-mb 128
+./isobase-node --auth open --port 8081 --max-queries 8 --memory-mb 128
 ./query-supervisor 'query(between(1,5,X),X)' 2 --memory-mb 64
 make memory-test
 python3 memory_tests.py --seconds 60
@@ -121,7 +121,7 @@ registered supervisors, and their worker children using the same platform metric
 as the per-query limit. Both limits remain active. Requests cannot change either.
 
 ```
-./isobase-node --memory-mb 256 --total-memory-mb 512 --max-queries 8
+./isobase-node --auth open --memory-mb 256 --total-memory-mb 512 --max-queries 8
 make total-memory-test
 python3 memory_tests.py --total-memory-mb 96 --seconds 60
 make isobase-node-asan

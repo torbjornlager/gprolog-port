@@ -1,3 +1,4 @@
+from outbound_test_policy import allow
 """Local TLS and HTTP boundary tests; no external service or system trust edits."""
 import http.server
 import json
@@ -57,6 +58,7 @@ class Server:
             context.load_cert_chain(cert,key)
             self.http.socket=context.wrap_socket(self.http.socket,server_side=True)
         self.uri=('https' if cert else 'http')+f'://127.0.0.1:{self.http.server_port}'
+        allow(self.uri)
         self.thread=threading.Thread(target=self.http.serve_forever,daemon=True);self.thread.start()
     def close(self):self.http.shutdown();self.http.server_close();self.thread.join(timeout=2)
 
@@ -92,6 +94,7 @@ def main():
             good=Server(*certificate(root,'good','IP:127.0.0.1'));servers.append(good)
             wrong=Server(*certificate(root,'wrong','DNS:wrong.invalid'));servers.append(wrong)
             expired=Server(*certificate(root,'expired','IP:127.0.0.1',-1));servers.append(expired)
+            allow(plain.uri.replace('http:','https:'))
             goal=lambda uri:f"rpc('{uri}',p(X)),X=ready"
             success(goal(good.uri),ca)
             error(goal(good.uri),'https_certificate_error')
@@ -99,8 +102,8 @@ def main():
             error(goal(expired.uri),'https_certificate_error',ca)
             error(goal(good.uri),'https_ca_file_error',root/'missing.pem')
             error(goal(plain.uri.replace('http:','https:')),'https_handshake_error',ca)
-            success(goal(good.uri+'/r5'),ca)
-            error(goal(good.uri+'/r6'),'http_redirect_error',ca)
+            error(goal(good.uri+'/r5'),'http_redirect_denied',ca)
+            error(goal(good.uri+'/r6'),'http_redirect_denied',ca)
             for uri in [plain.uri,good.uri]:
                 error(f"rpc('{uri}/slow',p(X),[http_timeout(0.02)])",'http_timeout',ca)
                 error(f"rpc('{plain.uri}',p(X),[src_uri('{uri}/slow'),http_timeout(0.02)])",'http_timeout',ca)

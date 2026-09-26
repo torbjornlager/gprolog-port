@@ -1,0 +1,473 @@
+{
+  "recorded": "2026-09-26",
+  "contract_version": "0.1.0",
+  "comparison_revisions": {
+    "trinity": "f237dd5c806893dad17c95cad9a2dc1692a73607",
+    "gprolog": "5976ac516c9fbd1d740d41b238597e327302baea"
+  },
+  "lock_sha256": "a094f4b5460aa01ac13d975bad431b8fed4715816f66260caecb206cf6976428",
+  "result_sha256": "a653c124dac520e65c150c09babfc425b66fe120c486f27562663a75f083879d",
+  "total": 1277,
+  "passed": 1276,
+  "comparison_cases": 1233,
+  "gnu_guard_cases": 2,
+  "boundary_cases": 42,
+  "failures": [
+    {
+      "family": "rpc_option_modes",
+      "goal": "catch((rpc('__RPC_TARGET__',member(X,[a,b,c]),[limit(0)])),error(Form,_),true)",
+      "template": "r(X,Form)",
+      "src_text": "",
+      "pass_": false,
+      "reference": "success([r(_8532,type_error(positive_integer,0))],false).\n",
+      "actual": "failure.\n"
+    }
+  ],
+  "boundary_observations": [
+    {
+      "family": "host_boundary",
+      "goal": "catch((X is 1152921504606846975+1),error(E,_),true)",
+      "template": "r(X,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,evaluation_error(int_overflow))],false).",
+      "pass_": true,
+      "reference": "success([r(1152921504606846976,_8502)],false).\n",
+      "actual": "success([r(_A0_V0,evaluation_error(int_overflow))],false).\n"
+    },
+    {
+      "family": "host_boundary",
+      "goal": "catch((X is -1152921504606846976-1),error(E,_),true)",
+      "template": "r(X,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,evaluation_error(int_overflow))],false).",
+      "pass_": true,
+      "reference": "success([r(-1152921504606846977,_8502)],false).\n",
+      "actual": "success([r(_A0_V0,evaluation_error(int_overflow))],false).\n"
+    },
+    {
+      "family": "host_boundary",
+      "goal": "catch((X is 2^60),error(E,_),true)",
+      "template": "r(X,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,evaluation_error(int_overflow))],false).",
+      "pass_": true,
+      "reference": "success([r(1152921504606846976,_8500)],false).\n",
+      "actual": "success([r(_A0_V0,evaluation_error(int_overflow))],false).\n"
+    },
+    {
+      "family": "host_boundary",
+      "goal": "catch((X is 2**60),error(E,_),true)",
+      "template": "r(X,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,evaluation_error(int_overflow))],false).",
+      "pass_": true,
+      "reference": "success([r(1152921504606846976,_8500)],false).\n",
+      "actual": "success([r(_A0_V0,evaluation_error(int_overflow))],false).\n"
+    },
+    {
+      "family": "host_boundary",
+      "goal": "catch((X is 1<<60),error(E,_),true)",
+      "template": "r(X,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,evaluation_error(int_overflow))],false).",
+      "pass_": true,
+      "reference": "success([r(1152921504606846976,_8500)],false).\n",
+      "actual": "success([r(_A0_V0,evaluation_error(int_overflow))],false).\n"
+    },
+    {
+      "family": "host_boundary",
+      "goal": "X=\"abc\"",
+      "template": "X",
+      "src_text": "",
+      "expected_gnu": "success([[97,98,99]],false).",
+      "pass_": true,
+      "reference": "success([\"abc\"],false).\n",
+      "actual": "success([[97,98,99]],false).\n"
+    },
+    {
+      "family": "host_boundary",
+      "goal": "catch(char_code(C,0),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([representation_error(character_code)],false).",
+      "pass_": true,
+      "reference": "success([_8478],false).\n",
+      "actual": "success([representation_error(character_code)],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "L=[49,49,53,50,57,50,49,53,48,52,54,48,54,56,52,54,57,55,54],catch(number_codes(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1152921504606846976,_8616)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "atom_codes(A,[49,49,53,50,57,50,49,53,48,52,54,48,54,56,52,54,57,55,54]),atom_chars(A,L),catch(number_chars(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1152921504606846976,_8634)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "L=[45,49,49,53,50,57,50,49,53,48,52,54,48,54,56,52,54,57,55,55],catch(number_codes(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(-1152921504606846977,_2172)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "atom_codes(A,[45,49,49,53,50,57,50,49,53,48,52,54,48,54,56,52,54,57,55,55]),atom_chars(A,L),catch(number_chars(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(-1152921504606846977,_2172)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "L=[49,114,50],catch(number_codes(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1r2,_8520)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "atom_codes(A,[49,114,50]),atom_chars(A,L),catch(number_chars(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1r2,_8532)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "L=[49,46,48,73,110,102],catch(number_codes(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1.0Inf,_8544)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "atom_codes(A,[49,46,48,73,110,102]),atom_chars(A,L),catch(number_chars(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1.0Inf,_8556)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "L=[49,46,53,78,97,78],catch(number_codes(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1.5NaN,_8544)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "atom_codes(A,[49,46,53,78,97,78]),atom_chars(A,L),catch(number_chars(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1.5NaN,_8550)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "L=[65297,65298],catch(number_codes(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(12,_8514)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "atom_codes(A,[65297,65298]),atom_chars(A,L),catch(number_chars(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(12,_8526)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "L=[1633,1634],catch(number_codes(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(12,_8520)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "atom_codes(A,[1633,1634]),atom_chars(A,L),catch(number_chars(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(12,_8532)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "L=[48,120,49,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48],catch(number_codes(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1152921504606846976,_8616)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "numeric_lexical",
+      "goal": "atom_codes(A,[48,120,49,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48]),atom_chars(A,L),catch(number_chars(N,L),error(E,_),true)",
+      "template": "r(N,E)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,syntax_error(illegal_number))],false).",
+      "pass_": true,
+      "reference": "success([r(1152921504606846976,_8622)],false).\n",
+      "actual": "success([r(_A0_V0,syntax_error(illegal_number))],false).\n"
+    },
+    {
+      "family": "rpc_option_modes",
+      "goal": "catch((rpc('__RPC_TARGET__',member(X,[a,b,c]),[timeout(-1)])),error(Form,_),true)",
+      "template": "r(X,Form)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,domain_error(timeout,-1))],false).",
+      "pass_": true,
+      "reference": "success([r(_8532,existence_error(url,'http://127.0.0.1:57837/call?goal=%28member%28_9508%2c%5ba%2cb%2cc%5d%29%29&template=%28v%28_9508%29%29&offset=0&format=prolog&timeout=0'))],false).\n",
+      "actual": "success([r(_A0_V0,domain_error(timeout,-1))],false).\n"
+    },
+    {
+      "family": "rpc_option_modes",
+      "goal": "catch((rpc('__RPC_TARGET__',member(X,[a,b,c]),[http_timeout(-1)])),error(Form,_),true)",
+      "template": "r(X,Form)",
+      "src_text": "",
+      "expected_gnu": "success([r(_,domain_error(timeout,-1))],false).",
+      "pass_": true,
+      "reference": "success([r(_8532,timeout_error(read,<stream>))],false).\n",
+      "actual": "success([r(_A0_V0,domain_error(timeout,-1))],false).\n"
+    },
+    {
+      "family": "rpc_boundary_options",
+      "goal": "catch(rpc('__RPC_TARGET__',true,[unknown(x)]),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(rpc_option,unknown(x))],false).",
+      "pass_": true,
+      "reference": "success([_8498],false).\n",
+      "actual": "success([domain_error(rpc_option,unknown(x))],false).\n"
+    },
+    {
+      "family": "rpc_boundary_options",
+      "goal": "catch(rpc('__RPC_TARGET__',true,[request_header(x=y)]),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(rpc_option,request_header(x=y))],false).",
+      "pass_": true,
+      "reference": "success([_8504],false).\n",
+      "actual": "success([domain_error(rpc_option,request_header(x=y))],false).\n"
+    },
+    {
+      "family": "rpc_boundary_options",
+      "goal": "catch(rpc('__RPC_TARGET__',true,[redirect(false)]),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(rpc_option,redirect(false))],false).",
+      "pass_": true,
+      "reference": "success([_8492],false).\n",
+      "actual": "success([domain_error(rpc_option,redirect(false))],false).\n"
+    },
+    {
+      "family": "rpc_boundary_options",
+      "goal": "catch(rpc('__RPC_TARGET__',true,[cert_verify_hook(accept)]),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(rpc_option,cert_verify_hook(accept))],false).",
+      "pass_": true,
+      "reference": "success([_8498],false).\n",
+      "actual": "success([domain_error(rpc_option,cert_verify_hook(accept))],false).\n"
+    },
+    {
+      "family": "rpc_boundary_options",
+      "goal": "catch(rpc('__RPC_TARGET__',true,[method(post)]),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(rpc_option,method(post))],false).",
+      "pass_": true,
+      "reference": "success([permission_error(url,'http://127.0.0.1:57837/call?goal=%28true%29&template=%28v%29&offset=0&format=prolog')],false).\n",
+      "actual": "success([domain_error(rpc_option,method(post))],false).\n"
+    },
+    {
+      "family": "rpc_boundary_options",
+      "goal": "catch(rpc('__RPC_TARGET__',true,[timeout(301)]),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(timeout,301)],false).",
+      "pass_": true,
+      "reference": "success([_8498],false).\n",
+      "actual": "success([domain_error(timeout,301)],false).\n"
+    },
+    {
+      "family": "rpc_boundary_options",
+      "goal": "catch(rpc('__RPC_TARGET__',true,[http_timeout(301)]),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(timeout,301)],false).",
+      "pass_": true,
+      "reference": "success([_8498],false).\n",
+      "actual": "success([domain_error(timeout,301)],false).\n"
+    },
+    {
+      "family": "rpc_boundary_uri",
+      "goal": "catch((rpc('__RPC_TARGET__/nested',true),S=ok),_,S=error)",
+      "template": "S",
+      "src_text": "",
+      "expected_gnu": "success([error],false).",
+      "pass_": true,
+      "reference": "success([ok],false).\n",
+      "actual": "success([error],false).\n"
+    },
+    {
+      "family": "rpc_boundary_uri",
+      "goal": "catch((rpc('__RPC_TARGET__/nested/',true),S=ok),_,S=error)",
+      "template": "S",
+      "src_text": "",
+      "expected_gnu": "success([error],false).",
+      "pass_": true,
+      "reference": "success([ok],false).\n",
+      "actual": "success([error],false).\n"
+    },
+    {
+      "family": "rpc_boundary_uri",
+      "goal": "catch((rpc('__RPC_TARGET__?old=value',true),S=ok),_,S=error)",
+      "template": "S",
+      "src_text": "",
+      "expected_gnu": "success([error],false).",
+      "pass_": true,
+      "reference": "success([ok],false).\n",
+      "actual": "success([error],false).\n"
+    },
+    {
+      "family": "rpc_boundary_uri",
+      "goal": "catch((rpc('__RPC_TARGET__#fragment',true),S=ok),_,S=error)",
+      "template": "S",
+      "src_text": "",
+      "expected_gnu": "success([error],false).",
+      "pass_": true,
+      "reference": "success([ok],false).\n",
+      "actual": "success([error],false).\n"
+    },
+    {
+      "family": "rpc_boundary_alias",
+      "goal": "catch(rpc(localhost,true),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(http_uri,localhost)],false).",
+      "pass_": true,
+      "reference": "success([_8484],false).\n",
+      "actual": "success([domain_error(http_uri,localhost)],false).\n"
+    },
+    {
+      "family": "rpc_boundary_alias",
+      "goal": "catch(rpc(local,true),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(http_uri,local)],false).",
+      "pass_": true,
+      "reference": "success([socket_error(eai_noname,'nodename nor servname provided, or not known')],false).\n",
+      "actual": "success([domain_error(http_uri,local)],false).\n"
+    },
+    {
+      "family": "rpc_boundary_alias",
+      "goal": "catch(rpc(self,true),error(E,_),true)",
+      "template": "E",
+      "src_text": "",
+      "expected_gnu": "success([domain_error(http_uri,self)],false).",
+      "pass_": true,
+      "reference": "success([socket_error(eai_noname,'nodename nor servname provided, or not known')],false).\n",
+      "actual": "success([domain_error(http_uri,self)],false).\n"
+    },
+    {
+      "family": "rpc_boundary_uri",
+      "goal": "atom_codes('__RPC_TARGET__',U),rpc(U,true)",
+      "template": "ok",
+      "src_text": "",
+      "expected_gnu": "success([ok],false).",
+      "pass_": true,
+      "reference": "failure.\n",
+      "actual": "success([ok],false).\n"
+    },
+    {
+      "family": "rpc_boundary_uri",
+      "goal": "atom_chars('__RPC_TARGET__',U),rpc(U,true)",
+      "template": "ok",
+      "src_text": "",
+      "expected_gnu": "success([ok],false).",
+      "pass_": true,
+      "reference": "failure.\n",
+      "actual": "success([ok],false).\n"
+    },
+    {
+      "family": "rpc_boundary_uri",
+      "goal": "catch((rpc('http://127.0.0.1:bad',true),S=ok),_,S=error)",
+      "template": "S",
+      "src_text": "",
+      "expected_gnu": "success([error],false).",
+      "pass_": true,
+      "reference": "failure.\n",
+      "actual": "success([error],false).\n"
+    }
+  ],
+  "note": "Saved observations, not a fresh run or independent conformance proof. Remediation for all boundaries remains C04; either implementation may change.",
+  "extension_characterization": [
+    {
+      "goal": "nth(1,[a,b],X)",
+      "returncode": 0,
+      "response": {
+        "type": "success",
+        "answers": [
+          "a"
+        ],
+        "more": false
+      }
+    },
+    {
+      "goal": "promise_cleanup(1000000000)",
+      "returncode": 0,
+      "response": {
+        "type": "success",
+        "answers": [
+          "_256"
+        ],
+        "more": false
+      }
+    }
+  ]
+}

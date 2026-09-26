@@ -8,7 +8,7 @@ import subprocess
 import time
 import urllib.parse
 
-node=subprocess.Popen([os.environ.get('ISO_NODE','./isobase-node'),'--port','0',
+node=subprocess.Popen([os.environ.get('ISO_NODE','./isobase-node'),'--auth','open','--port','0',
     '--max-queries','2','--time-ms','2000','--idle-ms','5000'],
     stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
 try:

@@ -1,3 +1,4 @@
+from outbound_test_policy import allow
 """Shared snapshot lifecycle and namespace tests over HTTP."""
 import http.client
 import json
@@ -27,7 +28,7 @@ path(A,B) :- edge(A,C),path(C,B).
 '''
 class Node:
     def __init__(self,path):
-        self.p=subprocess.Popen([os.environ.get('ISO_NODE','./isobase-node'),'--port','0','--shared-db',str(path)],
+        self.p=subprocess.Popen([os.environ.get('ISO_NODE','./isobase-node'),'--auth','open','--port','0','--shared-db',str(path)],
                                 stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         assert select.select([self.p.stdout],[],[],4)[0], 'startup timeout'
         line=self.p.stdout.readline()
@@ -35,6 +36,7 @@ class Node:
             self.p.wait(timeout=3)
             raise AssertionError(self.p.stderr.read())
         self.port=json.loads(line)['port']
+        allow(f'http://127.0.0.1:{self.port}')
     def call(self,goal,**params):
         c=http.client.HTTPConnection('127.0.0.1',self.port,timeout=3)
         c.request('GET','/call?'+urllib.parse.urlencode({'goal':goal,**params}))
@@ -90,10 +92,10 @@ def test_shared():
         for contents in ['bad(.', 'p :- halt.', ':- initialization(halt).', 'p :- missing.',
                          "'$shared$hack'.", 'x.'+' '*(1024*1024), 'x.\x00']:
             path.write_text(contents)
-            p=subprocess.run([os.environ.get('ISO_NODE','./isobase-node'),'--port','0','--shared-db',str(path)],
+            p=subprocess.run([os.environ.get('ISO_NODE','./isobase-node'),'--auth','open','--port','0','--shared-db',str(path)],
                              capture_output=True,text=True,timeout=4)
             assert p.returncode!=0 and not p.stdout and p.stderr,(contents[:40],p.stdout,p.stderr)
-        p=subprocess.run(['./isobase-node','--port','0','--shared-db',str(Path(d)/'missing')],capture_output=True,text=True,timeout=4)
+        p=subprocess.run(['./isobase-node','--auth','open','--port','0','--shared-db',str(Path(d)/'missing')],capture_output=True,text=True,timeout=4)
         assert p.returncode!=0 and not p.stdout
     print('PASS shared DB: local shadowing, shared call context, protected clauses, snapshots, restart and startup validation')
 

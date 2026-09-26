@@ -1,10 +1,11 @@
 % HTTP protocol and source composition stay in Prolog; C owns only transport.
-:- foreign(iso_net_start(+string,+integer,term,term)).
+:- foreign(iso_net_start(+string,+integer,+string,term,term)).
 :- foreign(iso_net_wait(+integer,+integer,term,term)).
 :- foreign(iso_net_peek(+integer,term,term)).
 :- foreign(iso_net_unmatched(+integer)).
 :- foreign(iso_net_cancel(+integer)).
 :- foreign(iso_net_escape(+string,term)).
+:- foreign(iso_net_node_uri(+string)).
 
 iso_rpc(Scope,URI,Goal,Options) :-
     iso_rpc_options(Options), iso_remote_goal(Goal),
@@ -65,20 +66,22 @@ iso_rpc_prepare(Scope,URI,Goal,Template,Options,Base,Limit,Once,HTTP) :-
     (var(RequestedTimeout)->Timeout=none;Timeout=RequestedTimeout),
     % Reject remote deadlines before composing or fetching source.
     (Timeout==none->true;iso_millis(Timeout,0,_)),
+    % Validate the node address before any src_uri download or request slot.
+    iso_uri(URI,U),
     iso_source_options(Scope,Options,Source),
     iso_option(http_timeout,Options,30,HT),iso_http_millis(HT,HTTP),
     % Assign one set of variable names across Goal and Template.
     term_variables(pair(Goal,Template),Vars),iso_wire_names(Vars,0,Names),
     iso_write_text(Goal,[quoted(true),ignore_ops(false),variable_names(Names)],G),
     iso_write_text(Template,[quoted(true),ignore_ops(false),variable_names(Names)],T),
-    iso_uri(URI,U),atom_concat(U,'/call?format=prolog',B0),
+    atom_concat(U,'/call?format=prolog',B0),
     iso_param(B0,goal,G,B1),iso_param(B1,template,T,B2),
     iso_param(B2,src_text,Source,B3),iso_param(B3,once,Once,B4),
     (Timeout==none -> Base=B4
     ;iso_param(B4,timeout,Timeout,Base)).
 iso_rpc_request(Base,Offset,Limit,HTTP,Reference) :-
     iso_param(Base,offset,Offset,B),iso_param(B,limit,Limit,URL),
-    iso_net_start(URL,HTTP,Reference,Status),
+    iso_net_start(URL,HTTP,rpc,Reference,Status),
     (Status==ok->true;throw(error(Status,promise/4))).
 iso_wire_names([],_,[]).
 iso_wire_names([V|Vs],I,[Name=V|Ns]) :- iso_number_atom(I,A),atom_concat('V',A,Name),
@@ -89,6 +92,7 @@ iso_param(Base,Key,Value,Out) :-
     atom_concat(Base,'&',A),atom_concat(A,Key,B),atom_concat(B,'=',C),atom_concat(C,Encoded,Out).
 iso_uri(URI0,URI) :-
     iso_source_uri(URI0,A),
+    (iso_net_node_uri(A)->true;throw(error(domain_error(http_uri,A),rpc/3))),
     (sub_atom(A,_,1,0,'/')->atom_length(A,N),M is N-1,sub_atom(A,0,M,1,URI);URI=A).
 % A source URL identifies an exact resource, not a node base URL.
 iso_source_uri(Host:Port,URI) :- nonvar(Host),atom(Host),integer(Port),!,
@@ -108,7 +112,7 @@ iso_source_parts(Scope,[O|Os],HT,Parts) :-
     (O=src_text(Text)->iso_text(Text,S),Parts=[S|Rest]
     ;O=src_list(Terms)->iso_list(Terms),iso_terms_source(Terms,S),Parts=[S|Rest]
     ;O=src_predicates(PIs)->iso_list(PIs),iso_export(Scope,PIs,Terms),iso_terms_source(Terms,S),Parts=[S|Rest]
-    ;O=src_uri(URI)->iso_source_uri(URI,U),iso_http_millis(HT,HTTP),iso_net_start(U,HTTP,R,Status),
+    ;O=src_uri(URI)->iso_source_uri(URI,U),iso_http_millis(HT,HTTP),iso_net_start(U,HTTP,source,R,Status),
         (Status==ok->true;throw(error(Status,rpc/3))),
         iso_net_wait(R,-1,S,Result),(Result==ok->true;throw(error(Result,rpc/3))),Parts=[S|Rest]
     ;Parts=Rest),iso_source_parts(Scope,Os,HT,Rest).

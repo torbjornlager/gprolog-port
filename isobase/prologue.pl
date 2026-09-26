@@ -66,7 +66,7 @@ iso_eval_function(round,[A],V) :- !,
 iso_eval_function(F,[A,B],_) :- member(F,[^,**]),A=:=0,B<0,!,
     throw(error(evaluation_error(zero_divisor),(is)/2)).
 iso_eval_function(atan2,[A,B],V) :- A=:=0,B=:=0,!,iso_atan2_zero(A,B,V).
-iso_eval_function(**,[A,B],V) :- integer(A),integer(B),B>=0,!,V is A^B.
+% ** retains GNU's ISO float result, including integer operands (contract B04).
 iso_eval_function(^,[A,B],V) :- integer(B),B<0,!,V is float(A)^B.
 iso_eval_function(log,[A],_) :- A=:=0,!,throw(error(evaluation_error(float_overflow),(is)/2)).
 iso_eval_function(F,Args,V) :- E=..[F|Args],V is E.

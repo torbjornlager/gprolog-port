@@ -1,3 +1,4 @@
+from outbound_test_policy import allow
 """Exact source URLs, ordered failures and transport-slot recovery on local HTTP."""
 import http.server
 import json
@@ -27,6 +28,7 @@ class SourceServer:
         self.server=http.server.ThreadingHTTPServer(('127.0.0.1',0),SourceHandler)
         self.server.daemon_threads=True;self.server.paths=[]
         self.uri=f'http://127.0.0.1:{self.server.server_port}'
+        allow(self.uri)
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True)
         self.thread.start()
     def close(self):

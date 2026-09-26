@@ -1,20 +1,39 @@
 # GNU Prolog ISOBASE node
 
 The target is an ISOBASE node compatible with the Trinity demonstrator.
-`CONFORMANCE.md` records the contract checklist, tests and remaining gaps.
+[STATUS.md](STATUS.md) is the current contract/implementation/evidence index;
+`CONFORMANCE.md` retains the historical audits and test methodology.
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) consolidates the security and SWI
+compatibility work, completion criteria and recommended order.
 ISOTOPE is a possible later extension. The actor implementation and its
 roadmap have been dropped; this project is focused on ISOBASE.
+
+The shared contract and pinned comparison setup are documented in
+[COMPARISON_BUILDS.md](COMPARISON_BUILDS.md).
+
+The current deployment scope and release gates are in
+[THREAT_MODEL.md](THREAT_MODEL.md): one trusted owner on loopback, with network
+and untrusted-client deployments still unsupported.
 
 ## Run the development HTTP node
 
 ```
 make
-./isobase-node --port 8081 --max-queries 8 --time-ms 1000 --idle-ms 30000 --memory-mb 256 --total-memory-mb 1024
+./isobase-node --auth open --port 8081 --max-queries 8 --time-ms 1000 --idle-ms 30000 --memory-mb 256 --total-memory-mb 1024
 ```
 
 The server binds **127.0.0.1 only**. Port `0` requests an ephemeral port; the
 first stdout line reports the chosen port as JSON. This is a local development
-node with no authentication or public-deployment support yet.
+node with owner-token authentication and browser request checks. These examples
+use explicit `--auth open` for trusted development only. Normal startup requires
+`--auth-token-file FILE`; see [SECURITY.md](SECURITY.md) for setup and limitations.
+Public deployment is not supported.
+
+Outbound access is denied by default. Configure `--outbound-policy FILE` with
+exact approved origins and IP pins; see [OUTBOUND_POLICY.md](OUTBOUND_POLICY.md).
+This also applies to the RPC examples below. Redirects and ambient proxies are disabled.
+For protected HTTPS peers, add an owner-scoped RPC credential rule as described
+in [OUTBOUND_CREDENTIALS.md](OUTBOUND_CREDENTIALS.md).
 
 ```
 curl --get http://127.0.0.1:8081/call \
@@ -60,7 +79,7 @@ shuts down supervised workers on SIGINT/SIGTERM.
 Supply an owner-managed Prolog file at startup:
 
 ```
-./isobase-node --port 8081 --shared-db shared-example.pl
+./isobase-node --auth open --port 8081 --shared-db shared-example.pl
 ```
 
 For example, `/call?goal=human(X)` then queries the provided sample without
@@ -106,7 +125,7 @@ Build a separate node bundle:
 
 ```sh
 python3 build_shared.py shared-example.pl --output build/my-node
-./build/my-node/isobase-node --port 8082
+./build/my-node/isobase-node --auth open --port 8082
 ```
 
 Use a new output directory for each build; the builder refuses to overwrite an
@@ -231,8 +250,10 @@ Current transport limits/differences:
 - HTTP timeout defaults to 30 seconds, with explicit timeouts bounded to
   0–300 seconds (zero transport timeout becomes 1 ms). The owning supervisor's
   cumulative execution budget still applies, including network waits.
-- Only HTTP(S) transport is supported, without redirects, authentication options,
-  relative source URIs or arbitrary SWI `http_open` options.
+- Only explicitly approved HTTP(S) destinations are supported; redirects are denied. Owner-scoped
+  HTTPS bearer credentials are supported; caller-supplied authentication options,
+  relative source URIs and arbitrary SWI `http_open` options remain unavailable.
+  HTTPS verification remains enabled.
 - Transport failures throw catchable diagnostic errors on RPC/yield. The SWI
   promise implementation can instead log a transport failure and leave yield
   waiting. Remote Prolog errors remain `error(Term)` promise messages.
@@ -245,8 +266,10 @@ Builds now link libcurl and pthreads (available in the macOS development SDK).
 `make rpc-test` launches temporary GNU and SWI nodes and tests all three call
 directions, pagination, bindings, source transfer, overlapping promises, timeout
 retry, cleanup, malformed/oversized responses and policy enforcement. It uses
-`TRINITY_ROOT` if set, like `make diff-test`. The suite also passes with the
-worker C code instrumented for AddressSanitizer and UndefinedBehaviorSanitizer:
+`TRINITY_ROOT` if set, like `make diff-test`. Earlier runs also covered the
+worker C code with AddressSanitizer and UndefinedBehaviorSanitizer. The current
+RPC suite stops at the known zero-limit disagreement; later cases are not
+validated by that failing run:
 
 ```sh
 make query-worker-asan
@@ -263,7 +286,8 @@ conformance**. Current limits and known differences include:
 
 - HTTP default page size is 10,000,000,000, matching the demonstrator.
   Zero-sized fresh queries fail without executing the goal; on a live
-  continuation zero selects the default page size, as in the reference.
+  continuation zero selects the default page size in GNU. This is not current
+  SWI agreement: zero-limit validation remains the open D01/K01 decision.
   Response byte and execution bounds apply regardless of page size.
 - The node owner sets the cumulative execution budget. Request `timeout` can
   tighten the wait budget but cannot increase the owner's limit.
@@ -274,7 +298,8 @@ conformance**. Current limits and known differences include:
   normalized Prolog variants. Prolog answers use standard quoted term syntax;
   operator spelling may differ from the demonstrator's canonical writer.
 - Remaining edge-case conformance checks,
-  authentication and hard OS memory containment remain unfinished.
+  multi-user authorization and hard OS memory containment remain unfinished.
+  Owner-token authentication and browser request checks are implemented; see SECURITY.md.
 
 Validation: `make test` includes the worker, source, policy, supervisor and HTTP
 suites, including eviction order, process cleanup and active-query protection. `make diff-test` launches temporary GNU and SWI nodes and compares 42
@@ -435,7 +460,7 @@ supervisor is instrumented by this target; GNU Prolog itself is not.
 1. Complete the mode/error and portability audit recorded in `CONFORMANCE.md`.
 2. Close the documented HTTP/source compatibility gaps and expand differential
    testing to the full intended profile contract.
-3. Add authentication, public execution controls and hard OS memory containment
+3. Complete isolated-deployment network controls, public execution controls and hard OS memory containment
    beyond the sampled query and node budgets.
 4. Extend endurance and failure testing across concurrent requests, continuation
    expiry and resource exhaustion before claiming full ISOBASE conformance.
@@ -454,6 +479,11 @@ and input waits. Correct abort/recovery, session I/O and source isolation need
 separate validation. Neither profile eliminates heap exhaustion within an
 individual allocating computation; GNU Prolog still has no general heap GC.
 
+
+## Historical implementation and audit notes
+
+The following sections describe successive audit batches. Their case counts and
+pass claims apply to those batches, not the current complete suite; see STATUS.md.
 
 ### Shared-clause inspection and proof trees
 
@@ -492,8 +522,8 @@ for the precise range, examples, test accounting and remaining limitations.
 
 ### RPC compatibility audit
 
-Unicode `src_text` character/code lists and redirected HTTP(S) source are
-supported. Redirects are limited to five hops and HTTP(S) destinations. Promise
+Unicode `src_text` character/code lists and approved HTTP(S) source are
+supported. Redirects are denied by the owner-controlled outbound policy. Promise
 state and error cleanup tests now cover both calling runtimes where the public
 APIs overlap. See [RPC_BOUNDARY.md](RPC_BOUNDARY.md) for tested behavior, cyclic
 exception guards and remaining host differences.

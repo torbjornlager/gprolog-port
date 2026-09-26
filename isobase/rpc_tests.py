@@ -1,3 +1,4 @@
+from outbound_test_policy import allow
 """Real GNU/SWI HTTP interoperability plus controlled transport fault tests."""
 import http.client
 import http.server
@@ -13,8 +14,8 @@ import time
 import urllib.parse
 
 ROOT=Path(__file__).resolve().parent
-SWI=shutil.which('swipl') or '/Applications/SWI-Prolog.app/Contents/MacOS/swipl'
-TRINITY=Path(os.environ.get('TRINITY_ROOT','/Users/lager/trinity-demonstrator'))
+from comparison_config import record_run
+SWI,TRINITY=record_run('rpc')
 
 def worker(goal, template='X', source=None):
     with tempfile.NamedTemporaryFile(mode='w',suffix='.pl') as f:
@@ -71,13 +72,14 @@ processes=[]
 server=http.server.ThreadingHTTPServer(('127.0.0.1',0),Handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
 fake=f'http://127.0.0.1:{server.server_port}'
+allow(fake)
 with tempfile.TemporaryFile(mode='w+') as log:
     try:
         sock=socket.socket();sock.bind(('127.0.0.1',0));sp=sock.getsockname()[1];sock.close()
         shared=str(ROOT/'shared-example.pl')
         start=f"node:node({sp},[profile(isobase),auth(open),ip('127.0.0.1'),load_shared_db_file('{shared}')]),thread_get_message(stop)"
         swi=subprocess.Popen([SWI,'-q','-s',str(TRINITY/'load.pl'),'-g',start],stdout=log,stderr=log);processes.append(swi)
-        node_args=[os.environ.get('ISO_COMPILED_NODE','./isobase-node'),'--port','0','--time-ms','5000']
+        node_args=[os.environ.get('ISO_COMPILED_NODE','./isobase-node'),'--auth','open','--port','0','--time-ms','5000']
         if 'ISO_COMPILED_NODE' not in os.environ:node_args+=['--shared-db',shared]
         node=subprocess.Popen(node_args,stdout=subprocess.PIPE,stderr=log,text=True);processes.append(node)
         gp=json.loads(node.stdout.readline())['port']
@@ -86,6 +88,7 @@ with tempfile.TemporaryFile(mode='w+') as log:
             except (OSError,http.client.HTTPException):time.sleep(.05)
         else:log.seek(0);raise AssertionError(log.read())
         gu=f'http://127.0.0.1:{gp}';su=f'http://127.0.0.1:{sp}'
+        allow(gu);allow(su)
         for uri in [gu,su]:
             expect(f"rpc('{uri}',member(X,[a,b,c]),[limit(1)])",['a','b','c'])
             expect(f"rpc('{uri}',member(X,[a,b,c]),[limit(2),once(true)])",['a','b'])
@@ -100,7 +103,8 @@ with tempfile.TemporaryFile(mode='w+') as log:
             expect(f"rpc('{uri}',true,[timeout(T)]),var(T),X=ok",['ok'])
             expect(f"rpc('{uri}',true,[once(O)]),X=O",['true'])
             assert worker(f"rpc('{uri}',fail)")==[{'type':'failure'}]
-            assert worker(f"rpc('{uri}',throw(should_not_run),[limit(0)])")==[{'type':'failure'}]
+            zero=worker(f"rpc('{uri}',throw(should_not_run),[limit(0)])")
+            assert zero==[{'type':'failure'}],('GNU' if uri==gu else 'SWI',zero)
             error(f"rpc('{uri}',throw(boom))",'boom')
             expect(f"promise('{uri}',member(X,[a,b,c]),R,[template(X),limit(1),offset(1)]),yield(R,M),M=success([Y],true)",['b'],template='Y')
             expect(f"promise('{uri}',fail,R),yield(R,M)",['failure'],template='M')

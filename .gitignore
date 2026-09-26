@@ -23,3 +23,6 @@
 __pycache__/
 *.py[cod]
 .DS_Store
+
+# Local owner credential used in the security setup example
+/isobase/owner.token

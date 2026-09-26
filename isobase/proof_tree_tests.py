@@ -3,8 +3,9 @@ from pathlib import Path
 import tempfile
 from shared_db_tests import Node
 
-EXAMPLE = Path('/Users/lager/trinity-demonstrator/examples/actors/18 proof-trees.pl')
-INTERPRETER = EXAMPLE.read_text().split('% Interpreter', 1)[1].split('/** <examples>', 1)[0]
+from comparison_config import CONTRACT_DIR, verify_contract
+verify_contract()
+INTERPRETER = (CONTRACT_DIR/'proof-tree-interpreter.pl').read_text()
 
 def check_inspection(node):
     cases = [

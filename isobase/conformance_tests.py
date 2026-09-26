@@ -1,3 +1,4 @@
+from outbound_test_policy import allow
 """Executable ISOBASE contract samples against the live SWI demonstrator.
 Term variants compare structurally. Error contexts/messages are intentionally
 reported as a separate compatibility gap, not hidden by string normalization.
@@ -14,7 +15,8 @@ import tempfile
 import urllib.parse
 
 ROOT=Path(__file__).resolve().parent
-SWI=shutil.which('swipl') or '/Applications/SWI-Prolog.app/Contents/MacOS/swipl'
+from comparison_config import record_run, RUN_DIRECTORIES
+SWI,TRINITY=record_run('conformance')
 CASES=[]
 def case(family,goal,template='ok',source='',**options):
     CASES.append(dict(family=family,goal=goal,template=template,src_text=source,**options))
@@ -119,6 +121,9 @@ CAPABILITIES="runtime_property(implementation(gnu_native)),runtime_property(pers
 def main():
     from rpc_source_tests import SourceServer
     processes=[];results=[]
+    from boundary_decisions import validate
+    decisions=validate()
+    boundaries_by_key={(d['family'],d['original_goal'],d['original_template']):d for d in decisions}
     source_server=SourceServer()
     with tempfile.TemporaryDirectory(prefix='isobase-contract-') as d, tempfile.TemporaryFile(mode='w+') as log:
         try:
@@ -127,14 +132,15 @@ def main():
             # This disposable reference runs the entire corpus in one window.
             request_budget=max(1000,2*len(CASES))
             goal=f"node:node({sp},[profile(isobase),auth(open),max_call_requests_per_window({request_budget}),ip('127.0.0.1'),load_shared_db_file('{shared}')]),writeln(ready),flush_output,thread_get_message(stop)"
-            swi=subprocess.Popen([SWI,'-q','-s','/Users/lager/trinity-demonstrator/load.pl','-g',goal],stdout=subprocess.PIPE,stderr=log,text=True);processes.append(swi)
+            swi=subprocess.Popen([SWI,'-q','-s',str(TRINITY/'load.pl'),'-g',goal],stdout=subprocess.PIPE,stderr=log,text=True);processes.append(swi)
             assert select.select([swi.stdout],[],[],15)[0],'SWI startup timeout'
             assert swi.stdout.readline().strip()=='ready'
             executable=os.environ.get('ISO_COMPILED_NODE','./isobase-node')
-            argv=[executable,'--port','0','--time-ms','3000']
+            argv=[executable,'--auth','open','--port','0','--time-ms','3000']
             if 'ISO_COMPILED_NODE' not in os.environ:argv+=['--shared-db',str(shared)]
             node=subprocess.Popen(argv,stdout=subprocess.PIPE,stderr=log,text=True);processes.append(node)
             gp=json.loads(node.stdout.readline())['port']
+            allow(f'http://127.0.0.1:{gp}')
             def request(port,params):
                 c=http.client.HTTPConnection('127.0.0.1',port,timeout=5)
                 c.request('GET','/call?'+urllib.parse.urlencode(params))
@@ -153,18 +159,25 @@ def main():
                     print('Request failed:',params,flush=True)
                     log.seek(0);print(log.read()[-4000:]);raise
                 # Rejection messages differ by host but neither may execute.
-                if row['family']=='guard_regression':same=actual.startswith('error(')
+                if 'expected_gnu' in row:
+                    decision=boundaries_by_key[(row['family'],row['goal'],row['template'])]
+                    same=None  # Observations are not conformance passes or waivers.
+                elif row['family']=='guard_regression':same=actual.startswith('error(')
                 elif row['family']=='rejection':same=actual.startswith('error(') and reference.startswith('error(')
                 else:
-                    expected=row.get('expected_gnu',reference)
+                    expected=reference
                     probe=subprocess.run([SWI,'-q','-g','read(A),read(B),(A=@=B->halt;halt(1))'],input=expected+'\n'+actual,capture_output=True,text=True,timeout=3)
                     same=probe.returncode==0
-                results.append(dict(**row,pass_=same,reference=reference,actual=actual))
+                result=dict(**row,pass_=same,reference=reference,actual=actual)
+                if same is None:result.update(boundary_id=decision['id'],disposition=decision['disposition'])
+                results.append(result)
             output=ROOT/'conformance-results.json';output.write_text(json.dumps(results,indent=2)+'\n')
-            failures=[r for r in results if not r['pass_']]
+            (RUN_DIRECTORIES['conformance']/'results.json').write_bytes(output.read_bytes())
+            failures=[r for r in results if r['pass_'] is False]
             guards=sum(r['family']=='guard_regression' for r in results)
             boundaries=sum('expected_gnu' in r for r in results)
-            print(f"Conformance samples: {len(results)-len(failures)}/{len(results)} passed ({guards} GNU-only guard checks; {boundaries} explicit host boundaries; remaining cases compared with SWI)")
+            scored=len(results)-boundaries
+            print(f"Comparison/guard checks: {scored-len(failures)}/{scored} passed ({guards} GNU-only guards); {boundaries} classified boundary observations unscored. Run boundary-contract-test for independent requirements.")
             for row in failures:print(json.dumps(row))
             assert not failures,f'{len(failures)} contract differences; see {output}'
         finally:

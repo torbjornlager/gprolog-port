@@ -8,7 +8,7 @@ import subprocess
 import time
 import urllib.parse
 
-node=subprocess.Popen([os.environ.get('ISO_NODE','./isobase-node'),'--port','0','--max-queries','2','--time-ms','600','--idle-ms','300'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+node=subprocess.Popen([os.environ.get('ISO_NODE','./isobase-node'),'--auth','open','--port','0','--max-queries','2','--time-ms','600','--idle-ms','300'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
 try:
     assert select.select([node.stdout],[],[],3)[0], 'startup timeout'
     started=node.stdout.readline()

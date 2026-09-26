@@ -9,11 +9,14 @@
 #include <time.h>
 #define __GPROLOG_FOREIGN_STRICT__
 #include "gprolog.h"
+#include "outbound_policy.h"
+#include "outbound_credentials.h"
 #define SLOTS 16
 #define BODY_MAX (1024*1024)
 #define URL_MAX (256*1024)
 typedef struct {
   long id, timeout;
+  OutboundPeer peer;
   pthread_t thread;
   pthread_mutex_t mutex;
   pthread_cond_t ready;
@@ -30,6 +33,49 @@ static int initialize(void) {
   if(!initialized){if(curl_global_init(CURL_GLOBAL_DEFAULT))return 0;initialized=1;}
   return 1;
 }
+/* Parse only: no resolver, socket, request slot or worker thread is started.
+ * Keep the caller's path bytes; this handle validates without normalizing them.
+ * Exact source-resource URLs intentionally use a separate Prolog interface. */
+PlBool iso_net_node_uri(char *url) {
+  size_t length=strlen(url);
+  if(length>URL_MAX)return PL_FALSE;
+  const char *authority;
+  if(!strncmp(url,"http://",7))authority=url+7;
+  else if(!strncmp(url,"https://",8))authority=url+8;
+  else return PL_FALSE;
+  for(const unsigned char *p=(const unsigned char *)url;*p;p++)
+    if(*p<=32 || *p==127 || *p=='?' || *p=='#')return PL_FALSE;
+  const char *end=authority+strcspn(authority,"/");
+  if(end==authority || memchr(authority,'@',(size_t)(end-authority)))return PL_FALSE;
+  const char *port=NULL;
+  if(*authority=='[') {
+    const char *close=memchr(authority,']',(size_t)(end-authority));
+    if(!close)return PL_FALSE;
+    if(close+1<end) {
+      if(close[1]!=':')return PL_FALSE;
+      port=close+2;
+    }
+  } else {
+    const char *colon=memchr(authority,':',(size_t)(end-authority));
+    if(colon)port=colon+1;
+  }
+  /* libcurl tolerates an empty explicit port; the node contract does not. */
+  if(port) {
+    if(port==end)return PL_FALSE;
+    unsigned value=0;
+    for(const char *p=port;p<end;p++) {
+      if(*p<'0' || *p>'9')return PL_FALSE;
+      value=value*10+(unsigned)(*p-'0');
+      if(value>65535)return PL_FALSE;
+    }
+  }
+  if(!initialize())return PL_FALSE;
+  CURLU *parsed=curl_url();
+  if(!parsed)return PL_FALSE;
+  CURLUcode status=curl_url_set(parsed,CURLUPART_URL,url,CURLU_DISALLOW_USER);
+  curl_url_cleanup(parsed);
+  return status==CURLUE_OK ? PL_TRUE : PL_FALSE;
+}
 static size_t receive_body(char *p,size_t n,size_t m,void *ctx) {
   Request *r=ctx;size_t size=n*m;
   if(size>BODY_MAX-r->size || memchr(p,0,size)){r->oversized=1;return 0;}
@@ -42,7 +88,14 @@ static int progress(void *ctx,curl_off_t a,curl_off_t b,curl_off_t c,curl_off_t 
 static void *run_request(void *ctx) {
   Request *r=ctx;CURL *curl=curl_easy_init();
   const char *error=NULL;
-  if(!curl)error="transport_initialization_failed";
+  char authorization[280]={0};struct curl_slist *headers=NULL;
+  if(r->peer.credential_file[0]) {
+    if(!outbound_authorization(r->peer.credential_file,authorization))error="outbound_credential_invalid";
+    else if(!(headers=curl_slist_append(NULL,authorization)))error="out_of_memory";
+    outbound_wipe(authorization,sizeof authorization);
+  }
+  if(error){if(curl)curl_easy_cleanup(curl);}
+  else if(!curl)error="transport_initialization_failed";
   else {
     curl_easy_setopt(curl,CURLOPT_URL,r->url);
     /* Trust configuration belongs to the process owner, never query options. */
@@ -52,7 +105,7 @@ static void *run_request(void *ctx) {
     curl_easy_setopt(curl,CURLOPT_SSL_VERIFYHOST,2L);
     curl_easy_setopt(curl,CURLOPT_PROTOCOLS,(long)(CURLPROTO_HTTP|CURLPROTO_HTTPS));
     curl_easy_setopt(curl,CURLOPT_REDIR_PROTOCOLS,(long)(CURLPROTO_HTTP|CURLPROTO_HTTPS));
-    curl_easy_setopt(curl,CURLOPT_FOLLOWLOCATION,1L);
+    curl_easy_setopt(curl,CURLOPT_FOLLOWLOCATION,0L);
     curl_easy_setopt(curl,CURLOPT_MAXREDIRS,5L);
     curl_easy_setopt(curl,CURLOPT_NOSIGNAL,1L);
     curl_easy_setopt(curl,CURLOPT_TIMEOUT_MS,r->timeout);
@@ -61,9 +114,30 @@ static void *run_request(void *ctx) {
     curl_easy_setopt(curl,CURLOPT_XFERINFOFUNCTION,progress);
     curl_easy_setopt(curl,CURLOPT_XFERINFODATA,r);
     curl_easy_setopt(curl,CURLOPT_NOPROGRESS,0L);
-    CURLcode code=curl_easy_perform(curl);long status=0;
+    char pin[512];
+    snprintf(pin,sizeof pin,"%s:%u:%s%s%s:%u",r->peer.host,r->peer.port,
+             r->peer.family==AF_INET6?"[":"",r->peer.ip,
+             r->peer.family==AF_INET6?"]":"",r->peer.port);
+    struct curl_slist *connect=curl_slist_append(NULL,pin);
+    CURLcode code=CURLE_FAILED_INIT;
+    /* Every security option must succeed before a connection is attempted. */
+    if(connect &&
+       curl_easy_setopt(curl,CURLOPT_SSL_VERIFYPEER,1L)==CURLE_OK &&
+       curl_easy_setopt(curl,CURLOPT_SSL_VERIFYHOST,2L)==CURLE_OK &&
+       curl_easy_setopt(curl,CURLOPT_HTTPHEADER,headers)==CURLE_OK &&
+       curl_easy_setopt(curl,CURLOPT_HEADEROPT,(long)CURLHEADER_SEPARATE)==CURLE_OK &&
+       curl_easy_setopt(curl,CURLOPT_PROXY,"")==CURLE_OK &&
+       curl_easy_setopt(curl,CURLOPT_PRE_PROXY,"")==CURLE_OK &&
+       curl_easy_setopt(curl,CURLOPT_FOLLOWLOCATION,0L)==CURLE_OK &&
+       curl_easy_setopt(curl,CURLOPT_CONNECT_TO,connect)==CURLE_OK &&
+       curl_easy_setopt(curl,CURLOPT_OPENSOCKETFUNCTION,outbound_socket)==CURLE_OK &&
+       curl_easy_setopt(curl,CURLOPT_OPENSOCKETDATA,&r->peer)==CURLE_OK)
+      code=curl_easy_perform(curl);
+    long status=0;
     curl_easy_getinfo(curl,CURLINFO_RESPONSE_CODE,&status);
-    if(r->oversized)error="response_too_large_or_invalid";
+    if(r->peer.blocked)error="outbound_denied";
+    else if(status>=300 && status<400)error="http_redirect_denied";
+    else if(r->oversized)error="response_too_large_or_invalid";
     else if(code==CURLE_PEER_FAILED_VERIFICATION)error="https_certificate_error";
     else if(code==CURLE_SSL_CACERT_BADFILE)error="https_ca_file_error";
     else if(code==CURLE_SSL_CONNECT_ERROR)error="https_handshake_error";
@@ -71,8 +145,10 @@ static void *run_request(void *ctx) {
     else if(code==CURLE_OPERATION_TIMEDOUT)error="http_timeout";
     else if(code!=CURLE_OK)error="http_transport_error";
     else if(status!=200)error="http_status_error";
-    curl_easy_cleanup(curl);
+    curl_easy_cleanup(curl);curl_slist_free_all(connect);
   }
+  for(struct curl_slist *h=headers;h;h=h->next)outbound_wipe(h->data,strlen(h->data));
+  curl_slist_free_all(headers);
   pthread_mutex_lock(&r->mutex);r->error=error;r->done=1;
   pthread_cond_broadcast(&r->ready);pthread_mutex_unlock(&r->mutex);return NULL;
 }
@@ -84,9 +160,12 @@ static void release(Request *r) {
   pthread_cond_destroy(&r->ready);pthread_mutex_destroy(&r->mutex);
   free(r->url);free(r->body);memset(r,0,sizeof *r);
 }
-PlBool iso_net_start(char *url,PlLong timeout,PlTerm reference,PlTerm status) {
+PlBool iso_net_start(char *url,PlLong timeout,char *purpose,PlTerm reference,PlTerm status) {
   if(!initialize())return PL_FALSE;
   if(strlen(url)>URL_MAX)return Pl_Un_String("request_too_large",status);
+  if(strcmp(purpose,"rpc") && strcmp(purpose,"source"))return Pl_Un_String("outbound_denied",status);
+  OutboundPeer peer={0};const char *denied=outbound_select(url,purpose,&peer);
+  if(denied)return Pl_Un_String(denied,status);
   Request *r=NULL;for(int i=0;i<SLOTS;i++)if(!requests[i].id){r=&requests[i];break;}
   if(!r)return Pl_Un_String("promise_limit_exceeded",status);
   r->url=strdup(url);if(!r->url)return Pl_Un_String("out_of_memory",status);
@@ -95,6 +174,7 @@ PlBool iso_net_start(char *url,PlLong timeout,PlTerm reference,PlTerm status) {
   do { if(next_id>9999999999L)next_id=1000000000L;candidate=next_id++; }
   while(lookup(candidate));
   r->id=candidate;
+  r->peer=peer;
   r->timeout=timeout;atomic_init(&r->cancel,0);
   pthread_mutex_init(&r->mutex,NULL);pthread_cond_init(&r->ready,NULL);
   if(pthread_create(&r->thread,NULL,run_request,r)) {

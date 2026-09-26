@@ -1,11 +1,46 @@
 # RPC and promise audit
 
-The GNU and SWI clients agree on the ten tested promise-state cases in
+C04 dispositions are now in [contract 0.2.0](contracts/0.2.0/CONTRACT.md).
+They define required future behavior; historical descriptions below do not
+waive failures of the new independent checks.
+
+Current reconciliation: [STATUS.md](STATUS.md). Counts and pass statements in
+the audit batches below are historical; they do not supersede the current saved
+results or resolve shared-contract decisions.
+
+Earlier audit runs recorded agreement on the ten promise-state cases in
 `rpc_tests.py`: missing-reference behavior, successful consumption, remote
 failure/error delivery, one-shot delivery on backtracking, non-consuming wait
 timeouts, timeout callbacks that fail or throw, and isolation of template
 bindings. These are explicit expected outcomes checked through both HTTP nodes,
 not claims of exhaustive equivalence.
+
+## Outbound policy update — 2026-09-26
+
+All transports now require owner-approved exact origins and IP pins. Redirects
+are denied, and ambient proxy variables are ignored. Source query strings remain
+supported on approved origins. See [OUTBOUND_POLICY.md](OUTBOUND_POLICY.md).
+Historical five-hop redirect statements below describe superseded behavior.
+The application part of S01 is implemented; isolated deployment network controls
+remain open. Owner-scoped HTTPS RPC credentials are now implemented; see
+[OUTBOUND_CREDENTIALS.md](OUTBOUND_CREDENTIALS.md).
+
+## Contract 0.2.0 node-address correction — 2026-09-26
+
+Node bases containing a query or fragment, malformed ports, userinfo or malformed
+authorities now raise `error(domain_error(http_uri,Address),_)` before source
+fetching or request-slot allocation. Both `rpc` and `promise` share this path.
+Validation uses libcurl's URL parser without network access, with explicit
+node-base restrictions. Valid path prefixes and percent-encoded path delimiters
+are preserved. Exact `src_uri` URLs retain their separate resource semantics,
+including query strings. Owner-controlled destination policy (S01) remains open.
+
+`rpc_address_tests.py` adds 56 fixture checks, including proof of no requests on
+rejection, successful requests after repeated rejected promises, and source-query
+preservation. The same checks run against shared snapshots and compiled clauses.
+GNU now passes all 39 targeted contract checks; this is a scoped result, not a
+complete compatibility or security certification. Historical transport-error
+and incompatible-query/fragment descriptions below are superseded.
 
 ## Corrections
 
@@ -155,3 +190,10 @@ URI parsing is not exhaustively equivalent: IPv6, userinfo, scheme case, relativ
 source references and all malformed forms remain unaudited. Exact request-size
 edges, aggregate multi-source limits, all validation combinations and TLS
 version/cipher/revocation behavior remain open.
+
+## Local access policy
+
+Nodes now require `--auth-token-file FILE` or explicit `--auth open` at startup.
+The compatibility fixtures select open mode. GNU RPC has no destination bearer
+credential option yet, so it cannot currently call a protected node. Owner
+credentials are never implicitly forwarded to outbound URLs. See SECURITY.md.

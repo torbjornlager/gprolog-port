@@ -25,7 +25,7 @@ def process_tree(pid):
     return sorted(ids),sum(rows[p][1] for p in ids)/1024
 
 def measure(executable,source,capacity):
-    args=[str(executable),'--port','0','--max-queries',str(capacity),'--time-ms','5000','--idle-ms','60000']
+    args=[str(executable),'--auth','open','--port','0','--max-queries',str(capacity),'--time-ms','5000','--idle-ms','60000']
     if source:args+=['--shared-db',str(source)]
     p=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     try:

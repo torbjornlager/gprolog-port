@@ -1,0 +1,129 @@
+{
+  "contract_version": "0.2.0",
+  "sources": [
+    {
+      "url": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/",
+      "retrieved": "2026-09-26",
+      "sha256": "d03564ae05a783b0091e2728ef16c2babb1ba853d51811558e7ac5b5e81f2da4",
+      "role": "index"
+    },
+    {
+      "url": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/conformity_testing",
+      "retrieved": "2026-09-26",
+      "sha256": "db1edfc48e065b90169be55cd93a2a62b32f9dacb2fd0707667590c1a7536e69",
+      "role": "selected test evidence; tables may include historical or alternative permissible outcomes"
+    },
+    {
+      "url": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/number_chars",
+      "retrieved": "2026-09-26",
+      "sha256": "3fcd6685ea7a32fb6396ea3fa21b4e7e25c93f2e2ce89a5f0ec811ebff414798",
+      "role": "selected test evidence; tables may include historical or alternative permissible outcomes"
+    },
+    {
+      "url": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/phrase",
+      "retrieved": "2026-09-26",
+      "sha256": "3d42f9d03fa4c9198a73e2e0bf57ff97ca0f61b6940856b2b8290236b1912614",
+      "role": "selected test evidence; tables may include historical or alternative permissible outcomes"
+    }
+  ],
+  "cases": [
+    {
+      "id": "syntax-56",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/conformity_testing",
+      "source_row": "56",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "integer(- 1)",
+      "expected": "success([ok],false).",
+      "basis": "existing core source syntax"
+    },
+    {
+      "id": "syntax-59",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/conformity_testing",
+      "source_row": "59",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "integer(- /*.*/1)",
+      "expected": "success([ok],false).",
+      "basis": "existing core source syntax"
+    },
+    {
+      "id": "syntax-315",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/conformity_testing",
+      "source_row": "315",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "X='\\x21\\',X == '!'",
+      "expected": "success([ok],false).",
+      "basis": "source/answer atom round trip; writer call replaced by template assertion"
+    },
+    {
+      "id": "chars-8",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/number_chars",
+      "source_row": "8",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "catch((number_chars(1,[0]),R=accepted),error(type_error(character,0),_),R=rejected),R==rejected",
+      "expected": "success([ok],false).",
+      "basis": "character-list type, not code-list coercion"
+    },
+    {
+      "id": "chars-14",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/number_chars",
+      "source_row": "14",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "catch((number_chars(N,[49]),R=accepted),error(type_error(character,49),_),R=rejected),R==rejected",
+      "expected": "success([ok],false).",
+      "basis": "character-list type, not code-list coercion"
+    },
+    {
+      "id": "chars-21",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/number_chars",
+      "source_row": "21",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "number_chars(N,[-,' ','1']),N== -1",
+      "expected": "success([ok],false).",
+      "basis": "numeric lexical syntax"
+    },
+    {
+      "id": "chars-31",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/number_chars",
+      "source_row": "31",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "number_chars(1,[C]),C=='1'",
+      "expected": "success([ok],false).",
+      "basis": "Cor.2 section, not the obsolete pre-corrigendum row"
+    },
+    {
+      "id": "phrase-4",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/phrase",
+      "source_row": "4",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "phrase([a],L),L==[a]",
+      "expected": "success([ok],false).",
+      "basis": "already required phrase/2 subset; not wholesale adoption of all DCG draft features"
+    },
+    {
+      "id": "phrase-9",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/phrase",
+      "source_row": "9",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "phrase(([a],[]),[a])",
+      "expected": "success([ok],false).",
+      "basis": "already required grammar conjunction"
+    },
+    {
+      "id": "phrase-14",
+      "source": "https://www.complang.tuwien.ac.at/ulrich/iso-prolog/phrase",
+      "source_row": "14",
+      "adaptation": "Run inside /call; catch formal errors and emit ok. Do not enable public stream I/O or flag mutation.",
+      "goal": "findall(L,phrase(([a];[]),L),Ls),Ls==[[a],[]]",
+      "expected": "success([ok],false).",
+      "basis": "already required alternatives and solution order"
+    }
+  ],
+  "selection_policy": {
+    "required": "Cases exercising an included predicate/expression or accepted source/wire syntax, under applicable corrected semantics. A failing included case stays a failure.",
+    "adapt": "read/write harness operations are replaced by node goal/source/answer round trips when that preserves the tested property; otherwise test the internal reader separately.",
+    "outside_profile": "Unrestricted stream/file I/O, database mutation, arbitrary directives, user flag/operator mutation, actors and nonselected library extensions. Test denial separately; never use sandbox denial as an ISO semantic pass.",
+    "conditional": "Declared integer/character limits, locale/float assumptions, implementation-defined choices and multiple allowed outcomes require explicit preconditions or allowed-outcome sets.",
+    "pending": "All unselected rows are unreviewed, not automatically excluded or passed. No claim of complete upstream-suite adoption.",
+    "safety": "Do not download-and-execute a whole suite or enable forbidden predicates to run it."
+  }
+}

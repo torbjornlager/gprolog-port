@@ -1,0 +1,478 @@
+{
+  "schema": 1,
+  "contract_version": "0.2.0",
+  "catalog_provenance": {
+    "repository_commit": "f237dd5c806893dad17c95cad9a2dc1692a73607",
+    "path": "docs/WEB_PROLOG_BUILTINS.md",
+    "sha256": "ae9f9ac035358d4bb51fc7560aa68b91e4ff918149df17c4330e4cf379c4f48f",
+    "authority": "pinned implementation catalog; expression list and descriptions are audit inputs, not newly adopted ISO requirements"
+  },
+  "obligations": [
+    {
+      "id": "source-directives",
+      "kind": "source",
+      "items": [
+        "dynamic/1",
+        "multifile/1",
+        "discontiguous/1"
+      ],
+      "implementation": [
+        "source.pl",
+        "compile_shared.pl"
+      ],
+      "evidence": [
+        "source_tests.py",
+        "shared_db_tests.py",
+        "compiled_tests.py"
+      ],
+      "status": "implemented; selected declaration tests",
+      "decision": "K08",
+      "remaining": "Complete invalid declaration, loading-order and compiled/snapshot parity modes."
+    },
+    {
+      "id": "dcg-source",
+      "kind": "source",
+      "items": [
+        "[]//0",
+        "'.'//2",
+        ",//2",
+        ";//2",
+        "|//2",
+        "{}/1",
+        "call//1",
+        "phrase//1",
+        "!//0",
+        "\\+//1",
+        "->//2"
+      ],
+      "implementation": [
+        "source.pl",
+        "policy.pl"
+      ],
+      "evidence": [
+        "source_tests.py",
+        "dcg_mode_cases.py",
+        "mode_cases.py"
+      ],
+      "status": "implemented with selected syntax/context coverage",
+      "decision": "K08 V02",
+      "remaining": "Module contexts, remaining malformed/variable grammars; applicability of separate grammar standards remains undecided."
+    },
+    {
+      "id": "arithmetic-expressions",
+      "kind": "expression",
+      "items": [
+        "+/2",
+        "-/2",
+        "*/2",
+        "///2",
+        "//2",
+        "rem/2",
+        "mod/2",
+        "-/1",
+        "abs/1",
+        "sign/1",
+        "float_integer_part/1",
+        "float_fractional_part/1",
+        "float/1",
+        "floor/1",
+        "truncate/1",
+        "round/1",
+        "ceiling/1",
+        "+/1",
+        "div/2",
+        "**/2",
+        "sin/1",
+        "cos/1",
+        "atan/1",
+        "exp/1",
+        "log/1",
+        "sqrt/1",
+        "max/2",
+        "min/2",
+        "^/2",
+        "asin/1",
+        "acos/1",
+        "atan2/2",
+        "tan/1",
+        "pi/0",
+        ">>/2",
+        "<</2",
+        "/\\\\/2",
+        "\\\\//2",
+        "\\\\/1",
+        "xor/2"
+      ],
+      "implementation": [
+        "policy.pl",
+        "prologue.pl",
+        "terms.c"
+      ],
+      "evidence": [
+        "boundary_cases.py",
+        "higher_arithmetic_cases.py",
+        "numeric_mode_cases.py",
+        "numeric_contract_tests.py"
+      ],
+      "status": "native evaluation with selected wrappers; ISO float output for ** restored under contract 0.2.0; not an exhaustive functor/mode audit",
+      "decision": "D02 K02 V03",
+      "remaining": "Verify required expression set and all domains/errors independently; native evaluator can accept additional GNU expressions."
+    },
+    {
+      "id": "rpc-options",
+      "kind": "option",
+      "items": [
+        "limit/1",
+        "once/1",
+        "timeout/1",
+        "http_timeout/1"
+      ],
+      "implementation": [
+        "rpc.pl",
+        "transport.c"
+      ],
+      "evidence": [
+        "rpc_option_cases.py",
+        "rpc_boundary_cases.py",
+        "rpc_tests.py"
+      ],
+      "status": "implemented; zero/timeout/unknown-option differences recorded",
+      "decision": "D01 D05 K01 K06",
+      "remaining": "Resolve option validation and binding order against shared decisions, not SWI alone."
+    },
+    {
+      "id": "promise-options",
+      "kind": "option",
+      "items": [
+        "template/1",
+        "offset/1"
+      ],
+      "implementation": [
+        "rpc.pl"
+      ],
+      "evidence": [
+        "rpc_option_cases.py",
+        "rpc_tests.py"
+      ],
+      "status": "implemented for promises; GNU common validator also accepts these in rpc/3",
+      "decision": "D05 K06",
+      "remaining": "Catalog describes these as promise-only. GNU rpc uses its own template and begins at offset zero; decide rejection versus explicitly permitted ignored options."
+    },
+    {
+      "id": "yield-options",
+      "kind": "option",
+      "items": [
+        "timeout/1",
+        "on_timeout/1"
+      ],
+      "implementation": [
+        "rpc.pl",
+        "policy.pl",
+        "transport.c"
+      ],
+      "evidence": [
+        "rpc_tests.py",
+        "policy_tests.py",
+        "conformance_tests.py"
+      ],
+      "status": "implemented with selected non-consuming timeout/callback tests",
+      "decision": "D05 K07 S08",
+      "remaining": "Complete mismatch, callback, guard and cancellation states; do not copy stale queue behavior."
+    },
+    {
+      "id": "source-options",
+      "kind": "option",
+      "items": [
+        "src_text/1",
+        "src_list/1",
+        "src_predicates/1",
+        "src_uri/1"
+      ],
+      "implementation": [
+        "rpc.pl",
+        "source.pl",
+        "text.pl",
+        "transport.c"
+      ],
+      "evidence": [
+        "rpc_source_tests.py",
+        "rpc_option_cases.py",
+        "rpc_boundary_cases.py",
+        "https_tests.py"
+      ],
+      "status": "implemented; exact-source URL and order checks exist",
+      "decision": "D05 K06 K08 K11 S01",
+      "remaining": "GNU URI source is HTTP(S) only; reference catalog also describes file/relative forms. Decide portable forms and enforce destination/aggregate bounds."
+    },
+    {
+      "id": "http-parameters",
+      "kind": "wire",
+      "items": [
+        "goal",
+        "template",
+        "src_text",
+        "format",
+        "offset",
+        "limit",
+        "once",
+        "timeout"
+      ],
+      "implementation": [
+        "http.c",
+        "query.pl",
+        "worker.c"
+      ],
+      "evidence": [
+        "http_tests.py",
+        "differential_tests.py",
+        "request_reader_tests.py"
+      ],
+      "status": "implemented; duplicate/unknown parameters rejected",
+      "decision": "D01 D06 K01 K09",
+      "remaining": "Complete encoding, size, formal-error and fresh/resumed limit modes."
+    },
+    {
+      "id": "answer-encoding",
+      "kind": "wire",
+      "items": [
+        "JSON bindings",
+        "Prolog success/failure/error envelopes",
+        "template/goal sharing",
+        "Unicode and operators"
+      ],
+      "implementation": [
+        "query.pl",
+        "text.pl",
+        "worker.c",
+        "terms.c",
+        "http.c"
+      ],
+      "evidence": [
+        "http_tests.py",
+        "higher_arithmetic_cases.py",
+        "boundary_cases.py",
+        "compiled_tests.py"
+      ],
+      "status": "implemented with selected serialization tests",
+      "decision": "D02 D03 D04 D06 K09",
+      "remaining": "Resolve number/string/cycle boundaries and exact formal versus diagnostic errors."
+    },
+    {
+      "id": "continuations",
+      "kind": "wire",
+      "items": [
+        "live pages",
+        "cache keys",
+        "replay on miss",
+        "once",
+        "expiry",
+        "eviction",
+        "disconnect"
+      ],
+      "implementation": [
+        "http.c",
+        "supervisor.c"
+      ],
+      "evidence": [
+        "http_tests.py",
+        "eviction_tests.py",
+        "supervisor_tests.py",
+        "endurance_tests.py"
+      ],
+      "status": "implemented; text keys and owner-wide continuations",
+      "decision": "D06 K10 S04",
+      "remaining": "Agree replay/key semantics and any per-principal ownership before tenant claims."
+    },
+    {
+      "id": "remote-lifecycle",
+      "kind": "wire",
+      "items": [
+        "RPC enumeration",
+        "promise reference lifetime",
+        "yield consumption",
+        "transport failure",
+        "cancellation"
+      ],
+      "implementation": [
+        "rpc.pl",
+        "transport.c"
+      ],
+      "evidence": [
+        "rpc_tests.py",
+        "rpc_source_tests.py",
+        "https_tests.py",
+        "rpc_address_tests.py"
+      ],
+      "status": "implemented; node address validation precedes source/network I/O in both RPC and promises; asynchronous error/cleanup differences remain",
+      "decision": "D05 K07",
+      "remaining": "Specify portable outcomes; current tests abort at the known zero-limit assertion before later RPC cases."
+    },
+    {
+      "id": "shared-source",
+      "kind": "source",
+      "items": [
+        "snapshot",
+        "native bundle",
+        "private shadowing",
+        "clause inspection",
+        "source exports"
+      ],
+      "implementation": [
+        "source.pl",
+        "compile_shared.pl",
+        "build_shared.py",
+        "policy.pl"
+      ],
+      "evidence": [
+        "shared_db_tests.py",
+        "compiled_tests.py",
+        "proof_tree_tests.py"
+      ],
+      "status": "implemented in both loading modes",
+      "decision": "K08 S12",
+      "remaining": "Complete source interaction coverage; shared application clauses are intentionally readable."
+    },
+    {
+      "id": "runtime-capabilities",
+      "kind": "capability",
+      "items": [
+        "implementation/1",
+        "persistent/1",
+        "inbound_addressable/1",
+        "dom/1",
+        "actor_isolation/1",
+        "hard_termination/1"
+      ],
+      "implementation": [
+        "prologue.pl"
+      ],
+      "evidence": [
+        "conformance_tests.py"
+      ],
+      "status": "GNU host declarations; not SWI equality requirements",
+      "decision": "V01",
+      "remaining": "Validate truthful worker capabilities; OS process separation does not imply an OS privilege sandbox."
+    },
+    {
+      "id": "execution-denials",
+      "kind": "security",
+      "items": [
+        "general I/O",
+        "runtime mutation",
+        "actors/sessions",
+        "owner node control",
+        "module bypass",
+        "arbitrary directives"
+      ],
+      "implementation": [
+        "policy.pl",
+        "source.pl"
+      ],
+      "evidence": [
+        "policy_tests.py",
+        "source_tests.py",
+        "conformance_tests.py"
+      ],
+      "status": "default-deny guards; selected direct/indirect checks",
+      "decision": "S08 S09",
+      "remaining": "Complete every callback/source/compiled entry point; excluded profile families remain excluded."
+    },
+    {
+      "id": "inbound-access",
+      "kind": "security",
+      "items": [
+        "bearer token",
+        "Host",
+        "Origin",
+        "fetch metadata",
+        "token file",
+        "open fixture mode"
+      ],
+      "implementation": [
+        "http.c",
+        "http_security.h"
+      ],
+      "evidence": [
+        "security_tests.py",
+        "request_reader_tests.py"
+      ],
+      "status": "implemented for authenticated local owner scope",
+      "decision": "D07 S03 S04 S10 S13",
+      "remaining": "Credential lifecycle and HTTP audits; network/multi-principal deployment unsupported."
+    },
+    {
+      "id": "outbound-access",
+      "kind": "security",
+      "items": [
+        "destination restrictions",
+        "destination credentials",
+        "TLS",
+        "redirects"
+      ],
+      "implementation": [
+        "transport.c",
+        "rpc.pl",
+        "outbound_policy.h",
+        "outbound_credentials.h"
+      ],
+      "evidence": [
+        "https_tests.py",
+        "rpc_source_tests.py",
+        "outbound_policy_tests.py",
+        "outbound_socket_tests.py",
+        "outbound_credentials_tests.py",
+        "credential-evidence.json"
+      ],
+      "status": "exact origin/IP and optional HTTPS RPC endpoint credential grants; deny by default; no inbound/source credential forwarding; proxies and redirects disabled",
+      "decision": "D07 S01 S02 S14",
+      "remaining": "S01 isolated-deployment network enforcement; S03 credential lifecycle; stronger secret isolation and further transport audit."
+    },
+    {
+      "id": "resource-lifecycle",
+      "kind": "security",
+      "items": [
+        "deadlines",
+        "response bounds",
+        "sampled query/aggregate memory",
+        "admission",
+        "cleanup"
+      ],
+      "implementation": [
+        "http.c",
+        "supervisor.c",
+        "memory.h",
+        "memory_tree.h",
+        "transport.c"
+      ],
+      "evidence": [
+        "supervisor_tests.py",
+        "memory_tests.py",
+        "total_memory_tests.py",
+        "endurance_tests.py"
+      ],
+      "status": "sampled limits implemented; hard OS containment missing",
+      "decision": "D07 S05 S06 S07 S11 K11 V05",
+      "remaining": "Hard containment, abrupt-death cleanup, fairness and aggregate transfer budgets remain."
+    },
+    {
+      "id": "gnu-extensions",
+      "kind": "extension",
+      "items": [
+        "nth/3",
+        "promise_cleanup/1"
+      ],
+      "implementation": [
+        "policy.pl",
+        "rpc.pl",
+        "transport.c"
+      ],
+      "evidence": [
+        "policy_tests.py",
+        "rpc_tests.py"
+      ],
+      "status": "exposed outside required/optional contract predicate inventory",
+      "decision": "C04 K06 K07",
+      "remaining": "C04 retains these as GNU-local optional extensions; shared API validation and cancellation work remain K06/K07."
+    }
+  ]
+}

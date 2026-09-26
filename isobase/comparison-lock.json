@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "contract_version": "0.2.0",
+  "repositories": {
+    "trinity": {
+      "url": "https://github.com/torbjornlager/trinity-demonstrator.git",
+      "commit": "f237dd5c806893dad17c95cad9a2dc1692a73607"
+    },
+    "gprolog": {
+      "url": "https://github.com/didoudiaz/gprolog.git",
+      "commit": "5976ac516c9fbd1d740d41b238597e327302baea"
+    }
+  },
+  "versions": {
+    "swi": "10.1.3",
+    "gprolog": "1.6.0"
+  },
+  "baseline_platform": {
+    "system": "Darwin",
+    "machine": "arm64",
+    "release": "25.5.0"
+  },
+  "baseline_toolchain": {
+    "cc": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+    "curl_config": "libcurl 8.7.1",
+    "curl_runtime": "libcurl/8.7.1 SecureTransport (LibreSSL/3.3.6) zlib/1.2.12 nghttp2/1.68.1"
+  },
+  "contract_sha256": {
+    "CONTRACT.md": "8f0114cad0407c5c27d8d2bc4fd4a15aca0f440353e2d57aea7914591aa385d2",
+    "boundary-decisions.json": "2b4d671bac06b65e439d003ecb62a30a358815110eeeb78e2026ee5ed81ab9eb",
+    "contract.json": "87f3f475972fc33ff03e32d965b3ebe1dca5e862a180f0cc4459e63fd9dbef1a",
+    "iso-test-selection.json": "0a82742bbd3c9c530aa05a3bd722cb70172657306cb62be16045ef0ba07a54bc",
+    "proof-tree-interpreter.pl": "4885bffbba555de75e8610072f72cce1305ce4ad028204d50707a5be12efaa43",
+    "trinity-acceptance-snapshot.md": "3b51651fc191a18be537b9c74cd726aeba4b4ecad87f2176d26e88975ffead15"
+  },
+  "baseline_runtime_sha256": {
+    "swi": "f5273dd0953b7989c2647be6e19f32610314c3cdf3e215f6c2a3fe7e03698e4c",
+    "gprolog": "80049c0156a8a10b6657efa23a4721f97b84ef597d02fdd1066020f7a1f4c873",
+    "gplc": "71e7e110f3fb0bfdffcb51e829f9efbc36174f472dbe15a39a49f61bc68e3dc9"
+  }
+}

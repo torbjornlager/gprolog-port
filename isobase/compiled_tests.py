@@ -1,3 +1,4 @@
+from outbound_test_policy import allow
 """Native shared code must retain snapshot-mode policy and query semantics."""
 import json
 import os
@@ -9,6 +10,10 @@ from shared_db_tests import SOURCE,Node
 from proof_tree_tests import check_inspection, check_proofs
 
 ROOT=Path(__file__).resolve().parent
+from numeric_contract_tests import SOURCE as NUMERIC_SOURCE, check_node as check_numeric
+
+from rpc_address_tests import SOURCE as ADDRESS_SOURCE, check_node as check_addresses
+
 extra='''
 convert_number(N,C) :- number_chars(N,C).
 round_value(A,R) :- R is round(A).
@@ -33,7 +38,7 @@ choice(c).
 hidden_callback(X) :- yield(999,X,[on_timeout(list_price(widget,X))]).
 '''
 with tempfile.TemporaryDirectory(prefix='compiled-tests-') as temp:
-    root=Path(temp);source=root/'source.pl';source.write_text(SOURCE+extra)
+    root=Path(temp);source=root/'source.pl';source.write_text(SOURCE+extra+NUMERIC_SOURCE+ADDRESS_SOURCE)
     # Integer-index regression for the pinned ARM64 CMP immediate bug.
     values=[-922337203685477000,-8192,-4160,-1,0,4095,4096,4160,4224,8192,9984,16777216,922337203685477000]
     with source.open('a') as f:
@@ -47,11 +52,13 @@ with tempfile.TemporaryDirectory(prefix='compiled-tests-') as temp:
         subprocess.run(['cc','-c',str(asm),'-o',str(root/'immediates.o')],check=True)
     interpreted=Node(source)
     os.environ['ISO_NODE']=str(bundle/'isobase-node')
+    subprocess.run(['python3','security_tests.py'],check=True)
     # The native node runs without --shared-db; the bundled executable owns it.
     class Native(Node):
         def __init__(self):
-            self.p=subprocess.Popen([str(bundle/'isobase-node'),'--port','0'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            self.p=subprocess.Popen([str(bundle/'isobase-node'),'--auth','open','--port','0'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
             self.port=json.loads(self.p.stdout.readline())['port']
+            allow(f'http://127.0.0.1:{self.port}')
     native=Native()
     shadow='list_price(widget,999). list_price(gadget,999). word --> [local].'
     cases=[('round_value(-1.5,R)',{}),('round_value(-0.49999999999999994,R)',{}),
@@ -82,6 +89,10 @@ with tempfile.TemporaryDirectory(prefix='compiled-tests-') as temp:
     for name in ['via_call','via_variable','via_apply']:cases.append((f'{name}(widget,X)',{'src_text':shadow}))
     for name in ['via_map','via_bag']:cases.append((f'{name}(X)',{'src_text':shadow}))
     try:
+        check_addresses(native)
+        check_addresses(interpreted)
+        check_numeric(native)
+        check_numeric(interpreted)
         check_inspection(native)
         check_inspection(interpreted)
         for value in values:
@@ -127,9 +138,9 @@ with tempfile.TemporaryDirectory(prefix='compiled-tests-') as temp:
         finally:fixture.close()
         # Mixing an interpreted snapshot with a compiled bundle must fail at startup.
         source.write_text('other(x).')
-        result=subprocess.run([str(bundle/'isobase-node'),'--port','0','--shared-db',str(source)],capture_output=True,text=True,timeout=5)
+        result=subprocess.run([str(bundle/'isobase-node'),'--auth','open','--port','0','--shared-db',str(source)],capture_output=True,text=True,timeout=5)
         assert result.returncode!=0 and not result.stdout and 'cannot_be_overlaid' in result.stderr,result
-        for test in ['tests.py','source_tests.py','policy_tests.py','rpc_source_tests.py']:
+        for test in ['tests.py','source_tests.py','policy_tests.py','rpc_source_tests.py','outbound_policy_tests.py','outbound_credentials_tests.py']:
             env=dict(os.environ,ISO_WORKER=str(bundle/'query-worker'))
             subprocess.run(['python3',test],check=True,env=env,cwd=ROOT)
         env=dict(os.environ,ISO_NODE=str(bundle/'isobase-node'),ISO_SUPERVISOR=str(bundle/'query-supervisor'))

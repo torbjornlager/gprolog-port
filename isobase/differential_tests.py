@@ -10,8 +10,8 @@ import tempfile
 import time
 import urllib.parse
 
-swi=shutil.which('swipl') or '/Applications/SWI-Prolog.app/Contents/MacOS/swipl'
-trinity=Path(os.environ.get('TRINITY_ROOT','/Users/lager/trinity-demonstrator'))
+from comparison_config import record_run
+swi,trinity=record_run('differential')
 
 def get(port,params):
     c=http.client.HTTPConnection('127.0.0.1',port,timeout=3)
@@ -28,7 +28,7 @@ with tempfile.TemporaryFile(mode='w+') as log:
         goal=f"node:node({reference_port},[profile(isobase),auth(open),ip('127.0.0.1'),load_shared_db_file('{shared}')]),thread_get_message(stop)"
         reference=subprocess.Popen([swi,'-q','-s',str(trinity/'load.pl'),'-g',goal],stdout=log,stderr=log)
         processes.append(reference)
-        node=subprocess.Popen(['./isobase-node','--port','0','--shared-db','shared-example.pl'],stdout=subprocess.PIPE,stderr=log,text=True)
+        node=subprocess.Popen(['./isobase-node','--auth','open','--port','0','--shared-db','shared-example.pl'],stdout=subprocess.PIPE,stderr=log,text=True)
         processes.append(node);port=json.loads(node.stdout.readline())['port']
         for _ in range(100):
             try:get(reference_port,{'goal':'true'});break

@@ -1,5 +1,13 @@
 # Tested text and numeric boundary
 
+C04 dispositions are now in [contract 0.2.0](contracts/0.2.0/CONTRACT.md).
+They define required future behavior; historical descriptions below do not
+waive failures of the new independent checks.
+
+Current reconciliation: [STATUS.md](STATUS.md). Counts and pass statements in
+the audit batches below are historical; they do not supersede the current saved
+results or resolve shared-contract decisions.
+
 This describes the GNU node's tested behavior and remaining compatibility gaps.
 It does not narrow or redefine the ISOBASE conformance target.
 
@@ -42,7 +50,7 @@ This 64-bit GNU build's integer range is:
 
 Values inside that range are exact integers. Arithmetic exceeding it raises
 catchable `evaluation_error(int_overflow)` in the tested addition, subtraction,
-power and shift cases. An out-of-range literal fails during parsing, before the
+integer `^/2` power and shift cases. An out-of-range literal fails during parsing, before the
 query's `catch/3` can execute. SWI can instead produce larger exact integers;
 this remains a host compatibility gap. No conversion to float is used to hide
 integer overflow.
@@ -53,6 +61,15 @@ errors and float overflow. `log(0)` now reports `float_overflow` as in SWI.
 General cross-host floating-point identity and every arithmetic boundary remain
 unaudited. Selected underflow, formatting and round trips are covered below;
 NaN/infinity lexical forms remain unsupported.
+
+`**/2` now retains GNU's ISO float result even for integer operands:
+`2**3` produces `8.0`, and `2**60` is a finite float. `^/2` retains its
+separate integer behavior. Numeric conversions enforce their declared list
+types: `number_chars/2` rejects numeric codes, and `number_codes/2` rejects
+character atoms. Valid partial output lists and ordinary conversions still work.
+The independent `numeric_contract_tests.py` covers these corrections in direct,
+submitted-source, shared snapshot and compiled execution. The historical
+SWI-matching conversion behavior described below is superseded.
 
 ## Evidence
 

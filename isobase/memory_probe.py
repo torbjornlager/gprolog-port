@@ -29,7 +29,7 @@ def snapshot(root):
 
 for workload in ['small','retained_list_100000']:
     for capacity in [8,16,32]:
-        node=subprocess.Popen(['./isobase-node','--port','0','--max-queries',str(capacity),
+        node=subprocess.Popen(['./isobase-node','--auth','open','--port','0','--max-queries',str(capacity),
             '--idle-ms','60000','--time-ms','3000','--shared-db','shared-example.pl'],
             stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         try:

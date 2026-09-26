@@ -1,14 +1,53 @@
 # ISOBASE conformance ledger
 
-Target: the documented portable ISOBASE profile and `/call` contract in the
-Trinity demonstrator, checked against its current local implementation.
+Target: the versioned [shared ISOBASE contract](contracts/0.2.0/CONTRACT.md),
+with [pinned comparison builds](COMPARISON_BUILDS.md). Historical cases below
+were developed against the Trinity profile; they are evidence of behavior,
+not automatic authority over the shared contract.
+SWI is a differential comparison implementation, not the normative authority.
+Applicable ISO Prolog requirements and the agreed ISOBASE contract determine
+correctness; a discrepancy may require changing GNU, SWI, both, or the tests.
+Historical “SWI comparison” counts below measure agreement, not independent
+standards compliance. See [the compatibility policy](RELEASE_CHECKLIST.md#compatibility-policy).
+
 This is an implementation and test ledger, **not a claim of full conformance**.
 A passing sample suite is not exhaustive validation of every mode or error case.
 
+Current counts, reconciliation and implementation/test mappings are maintained
+in [STATUS.md](STATUS.md). Audit sections below retain historical evidence;
+"now" and pass counts inside a historical batch refer to that batch.
+
+The 42 historical GNU-boundary outcomes are now classified and unscored in
+the comparison runner. Required behavior is checked independently by
+`make boundary-contract-test`; see [the scoped ISO selection](ISO_TEST_SELECTION.md).
+
+## GNU address corrections — 2026-09-26
+
+GNU now passes **39/39** targeted checks after rejecting node queries, fragments
+and malformed ports before source downloads or transport. The pinned SWI node
+still passes 5/39. `rpc_address_tests.py` adds 56 independent checks in submitted,
+shared-snapshot and compiled execution; source-resource query strings and path
+prefixes are preserved. Historical numeric-correction counts below record the
+preceding run. Neither these checks nor C04 complete the broader K05/S01 work.
+
+## GNU numeric corrections — 2026-09-26
+
+Restored native float results for `**/2` and enforced the distinct input types of
+`number_chars/2` and `number_codes/2`. The contract stays at 0.2.0. GNU now passes
+36/39 targeted requirements; SWI remains at 5/39. The three GNU failures concern
+RPC address validation. The comparison corpus records 1203/1235 agreements/guards
+and 42 unscored historical observations: 31 new disagreements follow these numeric
+corrections, alongside the unresolved `limit(0)` disagreement. They remain visible
+as comparison failures; neither peer supplies the independent expected answers.
+`numeric_contract_tests.py` adds 32 explicit regressions in direct, submitted,
+shared-snapshot and compiled contexts.
+
 ## Contract sources
 
-- `/Users/lager/trinity-demonstrator/docs/WEB_PROLOG_BUILTINS.md`
-- `/Users/lager/trinity-demonstrator/docs/WEB_PROLOG_BUILTINS_ACCEPTANCE_MATRIX.md`
+- The shared [contract 0.2.0](contracts/0.2.0/CONTRACT.md).
+- Its [pinned acceptance snapshot](contracts/0.2.0/trinity-acceptance-snapshot.md).
+- `docs/WEB_PROLOG_BUILTINS.md` in the pinned checkout selected by TRINITY_ROOT
+  (see COMPARISON_BUILDS.md); an implementation catalog, not the final authority.
 - `prolog/web_prolog/node_profile_policy.pl`, `node_call_context.pl`, `rpc.pl`,
   `node_engine.pl`, and `actor_io_template.pl` in that checkout.
 
@@ -34,10 +73,12 @@ recorded below rather than copied into this runtime.
 | Pagination/cache | Live continuations, offset replay after miss, oldest-idle eviction, active-query protection, idle expiry and zero-sized pages |
 | Lifecycle/resource behavior | Query deadlines, stack/output bounds, sampled worker/supervisor memory limits, disconnects, worker reaping; 400 queries / 800 pages with eight concurrent clients |
 
-The zero-limit behavior is deliberately the observed reference behavior: a fresh
+GNU retains a previously observed zero-limit behavior: a fresh
 zero-limit query returns `failure` without executing its goal; zero on a live
 continuation resumes with the default page limit. Source and goal validation
-still apply. The API accepts at most 10,000,000,000 as an explicit page size.
+still apply. Current pinned SWI RPC validation rejects zero with a positive-integer
+error. D01/K01 must decide the shared behavior separately for HTTP and RPC.
+The GNU API accepts at most 10,000,000,000 as an explicit page size.
 
 `runtime_property/1` reports `implementation(gnu_native)`, `persistent(false)`,
 `inbound_addressable(false)`, `dom(false)`, `actor_isolation(os_process)` and
@@ -61,6 +102,11 @@ errors are tested by catching `error(Form,_)` inside the query and comparing
 cases check rejection, not identical diagnostic wording. Host capability values
 and the explicitly identified guard regressions are GNU-only assertions; they
 are not counted as SWI behavioral matches.
+
+## Historical audits
+
+The following batches document work as it was performed, including subsequent
+corrections. Their historical totals are not fresh validation results.
 
 ## Guard and shared-inspection correction
 
@@ -106,7 +152,7 @@ not counted as a SWI match. No SWI runtime changes were made in this audit.
 
 See [TEXT_NUMERIC_BOUNDARY.md](TEXT_NUMERIC_BOUNDARY.md) for the tested contract,
 remaining lexical/string/NUL/integer limitations, and the distinction between
-SWI matches and explicit host-boundary checks. The suite now has 253 cases:
+SWI matches and explicit host-boundary checks. That audit batch had 253 cases:
 244 SWI comparisons, two GNU-only guard checks and seven host boundaries.
 UTF-8 atom operations and serialization are covered, including compiled source
 and RPC transfer; arbitrary SWI string or bignum equivalence is not claimed.
@@ -272,7 +318,7 @@ Running SWI deployments have not been restarted.
 Two of these checks verify that rpc captures the wire goal before
 option normalization, while promise captures it afterwards, as in SWI.
 
-The corpus now has 1219 passing cases: 1192 SWI comparisons, two GNU-only guards
+At that audit, the corpus had 1219 passing cases: 1192 SWI comparisons, two GNU-only guards
 and 25 explicit host boundaries, including GNU's rejection of negative remote and
 HTTP timeouts. Coarser rejection/cyclic-error checks remain included. Full URI,
 unknown-option and validation-precedence equivalence is not established.
@@ -294,8 +340,9 @@ unknown-option and validation-precedence equivalence is not established.
 
 `crypto_data_hash/3` is catalogued as a **local extension**, not part of the ISO
 prologue; it remains unavailable. Actor, session and general I/O predicates stay
-outside ISOBASE. Authentication and hard OS memory containment remain separate
-requirements before public deployment. The sampled query and node-wide memory
+outside ISOBASE. Owner-token authentication is now implemented. Authenticated
+outbound RPC, multi-principal authorization and hard OS memory containment remain
+separate requirements for the applicable deployment scope. The sampled query and node-wide memory
 policies are documented in MEMORY_LIMITS.md; the node remains loopback-only.
 
 ## URI, validation-order and source-failure audit
@@ -308,7 +355,7 @@ The expanded cases record strict option policy, timeout caps, URI aliases,
 text-list addresses, path/query/fragment behavior and malformed-port handling.
 URI rejection checks compare outcomes rather than exact HTTP diagnostics.
 
-The corpus now contains 1277 cases: 1233 SWI comparisons, two GNU-only guard
+That audit produced a corpus of 1277 cases: 1233 SWI comparisons, two GNU-only guard
 checks and 42 explicit host boundaries. `rpc_source_tests.py` separately adds
 11 source failure/order/resource checks, also run with a compiled worker.
 See RPC_BOUNDARY.md for their scope and the remaining URI/transport limitations.
@@ -350,3 +397,10 @@ The 60-second aggregate-pressure run at 96 MiB recorded 944 terminations,
 4,320 admission rejections and 13,294 healthy pages, with no retained sampled
 query processes or source files. The sampled aggregate peak was 127.3 MiB;
 this explicitly demonstrates the documented overshoot rather than a hard bound.
+
+## Owner access boundary
+
+HTTP startup now requires an explicit access policy. The compatibility harness
+uses `--auth open`; protected nodes use `--auth-token-file FILE`. Authentication
+and Host/Origin/fetch-metadata checks are tested separately by `security_tests.py`
+(including compiled bundles), not counted as predicate conformance. See SECURITY.md.

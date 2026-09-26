@@ -9,8 +9,9 @@ later extension. The actor implementation and its roadmap have been dropped.
 GNU Prolog's lack of general heap GC makes explicit query completion/recovery
 boundaries a better fit than arbitrary long-lived actor goals.
 
-[isobase/README.md](isobase/README.md) records the implementation and remaining
-work. The project now has a loopback C HTTP server for `/call`, with submitted
+[isobase/STATUS.md](isobase/STATUS.md) is the current contract, implementation
+and evidence index. [isobase/README.md](isobase/README.md) describes usage and
+implementation. The project now has a loopback C HTTP server for `/call`, with submitted
 source, JSON bindings, Prolog-text responses, live pagination and query admission
 limits. C supervisors enforce execution/idle deadlines, stack and response
 bounds, a sampled combined worker/supervisor memory budget, and worker cleanup.
@@ -22,7 +23,9 @@ validated at startup. Request-local overrides remain separate from shared rules,
 and continuations retain the startup database until the node restarts.
 
 RPC, promises and yield now work over HTTP(S), including source transfer and
-pagination. Bounded libcurl threads perform network I/O without entering the
+pagination. Outbound access now requires an owner-supplied exact-origin/IP policy;
+see [outbound configuration](isobase/OUTBOUND_POLICY.md). Redirects and ambient
+proxies are disabled. Bounded libcurl threads perform network I/O without entering the
 Prolog runtime. Promise references and resources belong to one query worker.
 `make rpc-test` checks GNU→GNU, GNU→SWI and SWI→GNU interoperability, timeouts,
 cleanup and policy enforcement. Transport limits and compatibility differences
@@ -35,15 +38,18 @@ mode remains available; native bundles cannot be overlaid with another snapshot.
 See the ISOBASE README for build instructions, measurements and the isolated
 workarounds for integer indexing in the pinned GNU compiler.
 
-All current suites pass, including 42 differential HTTP cases against the SWI
-Trinity demonstrator. The 1,000-query recovery test still returns to the same
-heap baseline. This is an initial ISOBASE HTTP implementation; remaining profile
-facilities, authentication and documented compatibility gaps are not complete.
+The local and compiled-bundle suites pass. The current SWI reference rejects
+zero page limits, which the older RPC and differential tests still expect to
+accept; this mismatch also reproduces before the access-control changes. The
+1,000-query recovery test still returns to the same heap baseline. This is an initial ISOBASE HTTP implementation; remaining profile
+facilities, hard security isolation and documented compatibility gaps are not complete.
+Owner-token authentication is available; see [the security guide](isobase/SECURITY.md).
+The example below explicitly opts into trusted development without authentication.
 
 ```sh
 cd /Users/lager/gprolog-port/isobase
 make test
-./isobase-node --port 8081
+./isobase-node --auth open --port 8081
 ```
 
 ## Initial C-interface experiment
@@ -85,8 +91,8 @@ make -C isobase all
 The current implementation is tested on Apple Silicon macOS. The commands above
 rebuild the private runtime; they are not a claim of portability to every platform.
 Python 3 is needed for the test scripts, and differential tests additionally need
-SWI-Prolog and the Trinity demonstrator checkout. Some test paths still refer to
-the original developer workspace. Historical build logs, benchmark bundles and
+SWI-Prolog and the Trinity demonstrator checkout. Comparison harnesses use configurable paths and verify pinned inputs; see
+[COMPARISON_BUILDS.md](isobase/COMPARISON_BUILDS.md). Historical build logs, benchmark bundles and
 test-result files referenced below remain available locally but are not published.
 
 ## Installation and validation

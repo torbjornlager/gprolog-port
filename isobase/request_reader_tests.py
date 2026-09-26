@@ -7,7 +7,7 @@ import socket
 import subprocess
 import time
 
-node=subprocess.Popen([os.environ.get('ISO_NODE','./isobase-node'),'--port','0'],
+node=subprocess.Popen([os.environ.get('ISO_NODE','./isobase-node'),'--auth','open','--port','0'],
                       stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
 connections=[]
 def connect(port):
@@ -27,7 +27,7 @@ try:
     warmed=connect(port)
     time.sleep(2.3)  # The previous reader queued HTTP 400 before any request.
     assert not select.select([warmed],[],[],0)[0], 'unsolicited HTTP response'
-    warmed.sendall(b'GET /call?goal=true HTTP/1.1\r\nHost: localhost\r\n\r\n')
+    warmed.sendall(f'GET /call?goal=true HTTP/1.1\r\nHost: localhost:{port}\r\n\r\n'.encode())
     assert response(warmed)==(200,{'type':'success','data':[{}],'more':False})
 
     partial=connect(port)
@@ -45,7 +45,7 @@ try:
     final=connect(port)
     final.sendall(b'GET /call?goal=true HTTP/1.1\r\n')
     time.sleep(.05)
-    final.sendall(b'Host: localhost\r\n\r\n')
+    final.sendall(f'Host: localhost:{port}\r\n\r\n'.encode())
     assert response(final)[0]==200
     print('PASS request reader: delayed first request, silent idle close, partial timeout, oversized headers and fragmentation')
 finally:

@@ -68,7 +68,7 @@ def until(predicate,timeout=4):
 class Node:
     def __init__(self,exe,total=48,**settings):
         before=set(Path('/tmp').glob('gprolog-http-*'))
-        args=[str(exe),'--port','0','--max-queries','8','--total-memory-mb',str(total+TEST_OVERHEAD_MB),'--time-ms','5000','--idle-ms','5000']
+        args=[str(exe),'--auth','open','--port','0','--max-queries','8','--total-memory-mb',str(total+TEST_OVERHEAD_MB),'--time-ms','5000','--idle-ms','5000']
         args += [str(x) for key,value in settings.items() for x in ('--'+key.replace('_','-'),value)]
         self.p=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         try:
@@ -173,10 +173,10 @@ def main():
         finally:node.close()
         # Startup validation must count the validator inside the total budget.
         shared=root/'shared.pl';shared.write_text('p(a).')
-        p=subprocess.run([str(exe),'--port','0','--shared-db',str(shared),'--total-memory-mb','16'],capture_output=True,text=True,timeout=5)
+        p=subprocess.run([str(exe),'--auth','open','--port','0','--shared-db',str(shared),'--total-memory-mb','16'],capture_output=True,text=True,timeout=5)
         assert p.returncode==2 and 'total_memory_limit_exceeded' in p.stderr,p
         shared.write_text('oversized.')
-        p=subprocess.run([str(exe),'--port','0','--shared-db',str(shared),'--total-memory-mb',str(24+TEST_OVERHEAD_MB)],capture_output=True,text=True,timeout=5)
+        p=subprocess.run([str(exe),'--auth','open','--port','0','--shared-db',str(shared),'--total-memory-mb',str(24+TEST_OVERHEAD_MB)],capture_output=True,text=True,timeout=5)
         assert p.returncode==2 and not p.stdout and 'total_memory_limit_exceeded' in p.stderr,p
         for value in ['0','-1','1048577','bad']:
             p=subprocess.run([str(exe),'--total-memory-mb',value],capture_output=True,timeout=3)

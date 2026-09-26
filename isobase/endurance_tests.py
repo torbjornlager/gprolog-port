@@ -8,7 +8,7 @@ import time
 import urllib.parse
 
 exe=os.environ.get('ISO_COMPILED_NODE','./isobase-node')
-args=[exe,'--port','0','--max-queries','8','--idle-ms','500','--time-ms','2000']
+args=[exe,'--auth','open','--port','0','--max-queries','8','--idle-ms','500','--time-ms','2000']
 if 'ISO_COMPILED_NODE' not in os.environ:args+=['--shared-db','shared-example.pl']
 node=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
 try:

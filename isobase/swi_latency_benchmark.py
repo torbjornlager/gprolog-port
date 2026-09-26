@@ -20,6 +20,8 @@ import time
 import urllib.parse
 
 ROOT=Path(__file__).resolve().parent
+from comparison_config import record_run
+SWI,TRINITY=record_run('latency')
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -42,15 +44,15 @@ def main():
         try:
             for mode in ['gnu_snapshot','gnu_compiled']:
                 executable=ROOT/'isobase-node' if mode=='gnu_snapshot' else bundle/'isobase-node'
-                command=[str(executable),'--port','0','--max-queries','32','--time-ms','5000']
+                command=[str(executable),'--auth','open','--port','0','--max-queries','32','--time-ms','5000']
                 if mode=='gnu_snapshot':command+=['--shared-db',str(source)]
                 p=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=log,text=True);processes.append(p)
                 ports[mode]=json.loads(p.stdout.readline())['port']
             with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
             ports['swi_isobase']=port
-            swi=shutil.which('swipl') or '/Applications/SWI-Prolog.app/Contents/MacOS/swipl'
+            swi=SWI
             goal=f"node:node({port},[profile(isobase),auth(open),ip('127.0.0.1'),cache_size(32),load_shared_db_file('{str(source)}')]),format('BENCH_READY~n'),flush_output,thread_get_message(stop)"
-            p=subprocess.Popen([swi,'-q','-s','/Users/lager/trinity-demonstrator/load.pl','-g',goal],stdout=subprocess.PIPE,stderr=log,text=True);processes.append(p)
+            p=subprocess.Popen([swi,'-q','-s',str(TRINITY/'load.pl'),'-g',goal],stdout=subprocess.PIPE,stderr=log,text=True);processes.append(p)
             deadline=time.monotonic()+15
             while time.monotonic()<deadline:
                 if select.select([p.stdout],[],[],.1)[0]:

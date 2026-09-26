@@ -127,13 +127,13 @@ iso_render_canonical(Term,Text) :-
     iso_write_text(Printable,[quoted(true),ignore_ops(true)],Text).
 
 
-% Complete input lists may be characters or codes; partial lists instead use
-% the declared output representation. Keep numeric argument validation first.
+% Numeric conversions keep their declared character/code representation in
+% both directions (contract 0.2.0). Keep numeric argument validation first.
 iso_number_text(N,List,Output) :-
     (var(N)->true;number(N)->true;iso_throw(error(type_error(number,N),number_codes/2))),
     iso_spine_kind(List,Kind),
     (Kind==cyclic->throw(error(representation_error(cyclic_term),number_codes/2));true),
-    iso_read_text_list(List,List,first,State,Codes),
+    iso_read_text_list(List,List,Output,State,Codes),
     (State==complete->iso_parse_number(Codes,Value),N=Value
     ;var(N)->throw(error(instantiation_error,number_codes/2))
     ;iso_number_output(N,Actual),
