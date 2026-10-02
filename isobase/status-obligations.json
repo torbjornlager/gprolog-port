@@ -390,15 +390,19 @@
       ],
       "implementation": [
         "http.c",
-        "http_security.h"
+        "http_security.h",
+        "credential_file.h",
+        "process_security.h"
       ],
       "evidence": [
         "security_tests.py",
-        "request_reader_tests.py"
+        "request_reader_tests.py",
+        "credential_lifecycle_tests.py",
+        "CREDENTIAL_LIFECYCLE.md"
       ],
       "status": "implemented for authenticated local owner scope",
       "decision": "D07 S03 S04 S10 S13",
-      "remaining": "Credential lifecycle and HTTP audits; network/multi-principal deployment unsupported."
+      "remaining": "Broader HTTP/disclosure audits and platform deployment validation; network/multi-principal deployment unsupported."
     },
     {
       "id": "outbound-access",
@@ -413,7 +417,9 @@
         "transport.c",
         "rpc.pl",
         "outbound_policy.h",
-        "outbound_credentials.h"
+        "outbound_credentials.h",
+        "credential_file.h",
+        "process_security.h"
       ],
       "evidence": [
         "https_tests.py",
@@ -421,11 +427,13 @@
         "outbound_policy_tests.py",
         "outbound_socket_tests.py",
         "outbound_credentials_tests.py",
-        "credential-evidence.json"
+        "credential-evidence.json",
+        "credential_lifecycle_tests.py",
+        "CREDENTIAL_LIFECYCLE.md"
       ],
       "status": "exact origin/IP and optional HTTPS RPC endpoint credential grants; deny by default; no inbound/source credential forwarding; proxies and redirects disabled",
       "decision": "D07 S01 S02 S14",
-      "remaining": "S01 isolated-deployment network enforcement; S03 credential lifecycle; stronger secret isolation and further transport audit."
+      "remaining": "S01 isolated-deployment network enforcement; stronger secret isolation and further transport audit."
     },
     {
       "id": "resource-lifecycle",

@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include "memory_tree.h"
 #include "http_security.h"
-extern char **environ;
+
 #define MAX_QUERIES 32
 #define MAX_CLIENTS 32
 #define REQUEST_CAP 262144
@@ -244,7 +244,30 @@ static int start_query(Query *q,Request *r,char *key) {
   posix_spawn_file_actions_t a;posix_spawn_file_actions_init(&a);
   posix_spawn_file_actions_adddup2(&a,in[0],0);posix_spawn_file_actions_adddup2(&a,out[1],1);
   posix_spawn_file_actions_addopen(&a,2,"/dev/null",O_WRONLY,0);
-  int status=posix_spawn(&q->pid,supervisor,&a,NULL,args,environ);
+  /* Explicit configuration only; never inherit ambient credentials or loaders. */
+  const char *names[]={"LANG","LC_ALL","LC_CTYPE","TZ","ISO_CA_FILE","ISO_OUTBOUND_POLICY"};
+  char *environment[7]={0};size_t count=0;int status=0;
+  for(size_t i=0;i<sizeof names/sizeof names[0];i++) {
+    const char *value=getenv(names[i]);
+    if(value) {if(asprintf(&environment[count],"%s=%s",names[i],value)<0){status=ENOMEM;break;}count++;}
+  }
+  posix_spawnattr_t attr;int initialized=posix_spawnattr_init(&attr)==0;
+  if(!initialized)status=ENOMEM;
+#ifdef __APPLE__
+  if(!status)status=posix_spawnattr_setflags(&attr,POSIX_SPAWN_CLOEXEC_DEFAULT);
+#elif defined(__GLIBC__)
+#if __GLIBC_PREREQ(2,34)
+  if(!status)status=posix_spawn_file_actions_addclosefrom_np(&a,3);
+#else
+  status=ENOTSUP;
+#endif
+#else
+  /* No silent fallback that could inherit a credential descriptor. */
+  status=ENOTSUP;
+#endif
+  if(!status)status=posix_spawn(&q->pid,supervisor,&a,&attr,args,environment);
+  if(initialized)posix_spawnattr_destroy(&attr);
+  for(size_t i=0;i<count;i++)free(environment[i]);
   posix_spawn_file_actions_destroy(&a);free(term);
   if(status){q->pid=0;goto failed;}
   close(in[0]);close(out[1]);q->in=in[1];q->out=out[0];q->key=key;q->busy=1;return 1;
@@ -417,9 +440,12 @@ static void *client(void *arg) {
       }
     }
   }
-  free(b);pthread_mutex_lock(&mutex);close(fd);clients[index]=-1;client_count--;pthread_cond_signal(&drained);pthread_mutex_unlock(&mutex);return NULL;
+  credential_wipe(b,used);free(b);pthread_mutex_lock(&mutex);close(fd);clients[index]=-1;client_count--;pthread_cond_signal(&drained);pthread_mutex_unlock(&mutex);return NULL;
 }
+#include "process_security.h"
 int main(int argc,char **argv) {
+  if(!iso_disable_dumps()){fprintf(stderr,"Cannot disable process core dumps\n");return 2;}
+  atexit(clear_owner_token);
   long port=8081;const char *shared_file=NULL,*token_file=NULL;int auth_mode=0;
   for(int i=1;i<argc;i+=2){long n;if(i+1>=argc)return 2;
     if(!strcmp(argv[i],"--auth-token-file")){if(auth_mode)return 2;auth_mode=1;token_file=argv[i+1];continue;}

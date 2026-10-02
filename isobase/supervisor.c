@@ -93,7 +93,9 @@ static int valid_event(const char *s,size_t n) {
      !strncmp(s,error,sizeof error-1) ||
      !strcmp(s,"{\"type\":\"failure\"}"));
 }
+#include "process_security.h"
 int main(int argc,char **argv) {
+  if(!iso_disable_dumps()){fprintf(stderr,"Cannot disable process core dumps\n");return 2;}
   if (argc<3 || (argc-3)%2) {
     fprintf(stderr,"usage: %s 'query(Goal,Template)' PAGE_SIZE [--source FILE] [--shared-db FILE] "
       "[--time-ms N] [--idle-ms N] [--heap-kb N] [--memory-mb N] [--max-output N]\n",argv[0]);

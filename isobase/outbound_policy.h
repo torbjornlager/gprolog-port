@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <strings.h>
+#include "credential_file.h"
 typedef struct {
   char host[256], ip[INET6_ADDRSTRLEN], credential_file[512];
   unsigned port;
@@ -37,8 +38,7 @@ static const char *outbound_select(const char *url,const char *purpose,OutboundP
   int fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK);
   struct stat st;
   if(fd<0){error="outbound_policy_invalid";goto done;}
-  if(fstat(fd,&st) || !S_ISREG(st.st_mode) || st.st_uid!=geteuid() ||
-     (st.st_mode&077) || st.st_size>65536) {
+  if(fstat(fd,&st) || !credential_private_fd(fd) || st.st_size>65536) {
     close(fd);error="outbound_policy_invalid";goto done;
   }
   file=fdopen(fd,"r");

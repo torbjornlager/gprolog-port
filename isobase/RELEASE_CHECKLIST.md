@@ -170,12 +170,18 @@ advertised as multi-user isolation.
   Thirty checks verify protected GNU→GNU, GNU→SWI and SWI→GNU calls through
   disposable TLS bridges, including compiled nodes. Credential brokers, hostile
   multi-user isolation and a production TLS deployment remain separate gates.
-- [ ] **S03 — Core: finish credential lifecycle verification.** Verify generation,
+- [x] **S03 — Core: finish credential lifecycle verification.** Verify generation,
   provisioning, file permissions/ACL assumptions, rotation, revocation via
   restart, failure behavior and secret redaction. Check crash/core dumps and
   inherited process state. **Done when:** documented operational procedures and
   negative tests demonstrate the chosen single-owner lifecycle. Hot rotation
   and multiple keys are required only if the selected service model needs them.
+  **Verified 2026-09-30 for the local owner model on macOS:**
+  [CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md) records the runbook, ACL
+  rejection, restart revocation, buffer wiping, disabled process core dumps and
+  child environment/descriptor isolation. Interpreted, compiled and controller
+  sanitizer tests pass. This does not certify OS-managed diagnostic reports,
+  same-user isolation or Linux behavior; those deployment limits remain explicit.
 - [ ] **S04 — Service: principal-aware authorization.** Add identities and
   capabilities where clients must be separated. Bind continuation access,
   cancellation, quotas, source access and privileged outbound credentials to the

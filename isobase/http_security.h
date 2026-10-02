@@ -1,5 +1,6 @@
 /* Controller-only access policy. No credential is passed to query workers. */
 #include <strings.h>
+#include "credential_file.h"
 static unsigned char owner_token[256];
 static size_t owner_token_length;
 static unsigned short bound_port;
@@ -9,8 +10,8 @@ static int token_character(unsigned char c) {
 static int load_owner_token(const char *path) {
   int fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
   if(fd<0)return 0;
-  struct stat st;unsigned char bytes[258];size_t used=0;int good=1;
-  if(fstat(fd,&st)||!S_ISREG(st.st_mode)||st.st_uid!=geteuid()||(st.st_mode&077))good=0;
+  unsigned char bytes[258]={0};size_t used=0;int good=1;
+  if(!credential_private_fd(fd))good=0;
   while(good&&used<sizeof bytes) {
     ssize_t n=read(fd,bytes+used,sizeof bytes-used);
     if(n<0&&errno==EINTR)continue;
@@ -21,8 +22,9 @@ static int load_owner_token(const char *path) {
   if(used<32||used>sizeof owner_token)good=0;
   for(size_t i=0;i<used;i++)if(!token_character(bytes[i]))good=0;
   if(good){memcpy(owner_token,bytes,used);owner_token_length=used;}
-  memset(bytes,0,sizeof bytes);return good;
+  credential_wipe(bytes,sizeof bytes);return good;
 }
+static void clear_owner_token(void) { credential_wipe(owner_token,sizeof owner_token);owner_token_length=0; }
 static int authorized(const char *value) {
   if(!owner_token_length)return 1;
   if(!value||strncasecmp(value,"Bearer ",7))return 0;

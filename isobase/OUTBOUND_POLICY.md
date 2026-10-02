@@ -7,7 +7,8 @@ compiled nodes. Inbound authentication does not grant a destination automaticall
 
 ## Configuration
 
-Create an owner-only regular file (recommended permissions `0600`). Each record
+Create an owner-only regular file (recommended permissions `0600`) with no
+extended ACL, inside an owner-controlled directory. Each record
 contains four whitespace-separated fields: **scheme host port pinned-IP**.
 An optional `rpc ENDPOINT TOKEN_FILE` suffix authorizes a scoped HTTPS bearer
 credential; see [OUTBOUND_CREDENTIALS.md](OUTBOUND_CREDENTIALS.md).

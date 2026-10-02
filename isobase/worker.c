@@ -109,7 +109,9 @@ static int recovery_test(void) {
   printf("{\"queries\":1000,\"before\":%ld,\"after\":%ld}\n",before,after);
   return before==after ? 0 : 1;
 }
+#include "process_security.h"
 int main(int argc,char **argv) {
+  if(!iso_disable_dumps()){fprintf(stderr,"Cannot disable process core dumps\n");return 2;}
   int recovery=argc==2 && !strcmp(argv[1],"--recovery-test");
   int source=argc==5 && !strcmp(argv[3],"--source");
   if (argc!=3 && !recovery && !source) {

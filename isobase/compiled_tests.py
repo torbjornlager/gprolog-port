@@ -53,6 +53,7 @@ with tempfile.TemporaryDirectory(prefix='compiled-tests-') as temp:
     interpreted=Node(source)
     os.environ['ISO_NODE']=str(bundle/'isobase-node')
     subprocess.run(['python3','security_tests.py'],check=True)
+    subprocess.run(['python3','credential_lifecycle_tests.py'],check=True)
     # The native node runs without --shared-db; the bundled executable owns it.
     class Native(Node):
         def __init__(self):

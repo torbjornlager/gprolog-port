@@ -28,11 +28,15 @@ PY
 ```
 
 Keep this file out of source control. The node requires a regular file owned by
-its effective user, with no group or other permission bits, and refuses symlinks.
+its effective user, with no group or other permission bits or extended ACL, and
+refuses symlinks. Keep it in an owner-controlled directory (recommended `0700`);
+file checks do not validate every parent directory.
 Its contents must be 32–256 ASCII letters, digits, `_` or `-`, optionally followed
 by one LF. Use a randomly generated token; length alone does not ensure strength.
 The controller reads it once at startup. Restart with a replacement file to
-rotate credentials; all saved continuations disappear on restart.
+rotate credentials; all saved continuations disappear on restart. See
+[CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md) for the provisioning,
+rotation and revocation procedure and process protections.
 
 A client can read the file without putting the token in its process arguments:
 
@@ -107,7 +111,9 @@ Remaining boundaries include:
   see MEMORY_LIMITS.md. Local denial of service is still possible.
 - **Credential isolation/lifecycle:** [owner-scoped HTTPS RPC credentials](OUTBOUND_CREDENTIALS.md)
   now support protected calls. Native workers still read the selected token file;
-  stronger secret isolation and the full S03 lifecycle review remain open.
+  S03 is verified for the local owner lifecycle on macOS. Stronger secret
+  isolation, other-platform validation and OS diagnostic-report handling remain
+  deployment concerns.
   Inbound credentials are never automatically forwarded.
 - **Deployment:** no public listener, TLS server, reverse-proxy deployment
   contract, multi-user isolation, or comprehensive independent security audit.
@@ -116,13 +122,16 @@ Remaining boundaries include:
 
 `make security-test` exercises startup configuration and token-file validation,
 authentication, Host/Origin/fetch metadata, malformed headers, restart rotation,
-and continuation preservation after rejected requests. `make test` includes
+and continuation preservation after rejected requests. `make lifecycle-test`
+checks provisioning, ACL rejection, restart revocation, process core limits and
+child environment/descriptor isolation. `make test` includes
 these checks; `make compiled-test` repeats them against a compiled bundle.
 For controller memory/undefined-behavior instrumentation:
 
 ```sh
 make isobase-node-asan
 ISO_NODE=./isobase-node-asan python3 security_tests.py
+ISO_NODE=./isobase-node-asan python3 credential_lifecycle_tests.py
 ```
 
 Validation on 2026-09-26: local `make test`, compiled bundles, controller
@@ -131,3 +140,7 @@ passed. The conformance corpus passed 1,276 of 1,277 cases. Its one difference,
 also reported by the older RPC/differential suites, is the current SWI reference's
 rejection of `limit(0)`. Rebuilding the committed pre-authentication controller
 reproduced the RPC failure against SWI; it is not introduced by these controls.
+
+Validation on 2026-09-30: `make test`, `make compiled-test`, and both controller
+ASan/UBSan security and lifecycle suites passed. The required boundary comparison
+remains GNU 39/39 and pinned SWI 5/39; SWI discrepancies remain open.

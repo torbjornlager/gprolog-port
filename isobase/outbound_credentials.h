@@ -1,13 +1,14 @@
 /* Secrets never enter Prolog terms, URL parameters or diagnostic strings. */
 #include <errno.h>
+#include "credential_file.h"
 static void outbound_wipe(void *buffer,size_t length) {
-  volatile unsigned char *p=buffer;while(length--)*p++=0;
+  credential_wipe(buffer,length);
 }
 static int outbound_authorization(const char *path,char header[280]) {
   int fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
   if(fd<0)return 0;
-  struct stat st;unsigned char bytes[258]={0};size_t used=0;int good=1;
-  if(fstat(fd,&st) || !S_ISREG(st.st_mode) || st.st_uid!=geteuid() || (st.st_mode&077))good=0;
+  unsigned char bytes[258]={0};size_t used=0;int good=1;
+  if(!credential_private_fd(fd))good=0;
   while(good && used<sizeof bytes) {
     ssize_t n=read(fd,bytes+used,sizeof bytes-used);
     if(n<0 && errno==EINTR)continue;

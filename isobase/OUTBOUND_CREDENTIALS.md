@@ -51,8 +51,9 @@ into submitted goals, source, URLs, command arguments, or version control.
 Each admitted transfer reads the current token file. Use atomic replacement for
 rotation; removal makes subsequent credential loads fail. Already admitted or
 completed transfers and prefetched answers are not retroactively revoked.
-Revoking a peer-side token remains the peer owner's responsibility. Full crash,
-ACL and credential-lifecycle verification remains S03.
+Revoking a peer-side token remains the peer owner's responsibility.
+Token and policy files also reject extended ACLs. S03 procedures and tested
+process protections are in [CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md).
 
 The bearer header is constructed in the C transport, not in Prolog terms or URL
 parameters. Temporary buffers and the owned header list are wiped after use.
