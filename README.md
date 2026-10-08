@@ -48,7 +48,7 @@ The example below explicitly opts into trusted development without authenticatio
 
 ```sh
 cd /Users/lager/gprolog-port/isobase
-make test
+make local-test
 ./isobase-node --auth open --port 8081
 ```
 
@@ -90,6 +90,18 @@ make -C isobase all
 
 The current implementation is tested on Apple Silicon macOS. The commands above
 rebuild the private runtime; they are not a claim of portability to every platform.
+If the default macOS SDK fails to link with `unknown architecture` in
+`libSystem.tbd`, select an installed SDK compatible with the compiler before
+configuring and building. The 2026-10-08 local rebuild used:
+
+```sh
+export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
+```
+
+Keep that setting for the node build and tests, which also compile C fixtures.
+`make -C isobase local-test` runs the GNU-only suite; `make -C isobase test`
+additionally runs outbound credential interoperability checks against pinned SWI
+and Trinity builds.
 Python 3 is needed for the test scripts, and differential tests additionally need
 SWI-Prolog and the Trinity demonstrator checkout. Comparison harnesses use configurable paths and verify pinned inputs; see
 [COMPARISON_BUILDS.md](isobase/COMPARISON_BUILDS.md). Historical build logs, benchmark bundles and

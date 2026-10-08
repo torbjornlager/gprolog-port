@@ -175,13 +175,34 @@ static void error_reply(int fd,int code,const char *format,const char *reason) {
   reply(fd,code,format,b);
 }
 static int hex(char c) { if(c>='0'&&c<='9')return c-'0';if(c>='a'&&c<='f')return c-'a'+10;if(c>='A'&&c<='F')return c-'A'+10;return -1; }
+/* HTTP parameters are Unicode text. Validate after percent decoding, before
+ * malformed text can spend query resources or evict a live continuation. */
+static int valid_utf8(const unsigned char *s,size_t length) {
+  for(size_t i=0;i<length;) {
+    unsigned int c=s[i++],value,minimum;size_t remaining;
+    if(c<128)continue;
+    if(c>=0xc2&&c<=0xdf){value=c&31;minimum=0x80;remaining=1;}
+    else if(c>=0xe0&&c<=0xef){value=c&15;minimum=0x800;remaining=2;}
+    else if(c>=0xf0&&c<=0xf4){value=c&7;minimum=0x10000;remaining=3;}
+    else return 0;
+    if(remaining>length-i)return 0;
+    while(remaining--) {
+      c=s[i++];if((c&0xc0)!=0x80)return 0;
+      value=(value<<6)|(c&63);
+    }
+    if(value<minimum||value>0x10ffff||(value>=0xd800&&value<=0xdfff))return 0;
+  }
+  return 1;
+}
 static char *decode(const char *s) {
   char *v=malloc(strlen(s)+1),*p=v;if(!v)return NULL;
   for(;*s;s++) { unsigned char c=(unsigned char)*s;
     if(c=='%') { if(!s[1]||!s[2]||hex(s[1])<0||hex(s[2])<0){free(v);return NULL;}c=(unsigned char)(hex(s[1])*16+hex(s[2]));s+=2; }
     else if(c=='+')c=' ';
     if(!c){free(v);return NULL;}*p++=(char)c;
-  }*p=0;return v;
+  }*p=0;
+  if(!valid_utf8((const unsigned char *)v,(size_t)(p-v))){free(v);return NULL;}
+  return v;
 }
 static int integer(const char *s,long min,long max,long *v) {
   char *e;errno=0;long n=strtol(s,&e,10);if(errno||!*s||*e||n<min||n>max)return 0;*v=n;return 1;
@@ -425,13 +446,24 @@ static void *client(void *arg) {
   } else {
     char *header_end=strstr(b,"\r\n\r\n");
     char *end=strstr(b,"\r\n");
+    /* Raw control characters are invalid in the request line, even when
+     * the Prolog reader would accept them as whitespace in a goal. */
+    int invalid_line=0;
+    for(char *p=b;p<end;p++)
+      if((unsigned char)*p<32||(unsigned char)*p==127){invalid_line=1;break;}
     const char *reason="invalid_headers";
-    int denied=(header_end+4!=b+used)?400:check_headers(end+2,&reason);
+    int denied;
+    if(invalid_line){denied=400;reason="invalid_request";}
+    else denied=(header_end+4!=b+used)?400:check_headers(end+2,&reason);
     *end=0;char *space=strchr(b,' '),*last=space?strchr(space+1,' '):NULL;
     if(denied){error_reply(fd,denied,"json",reason);finish_rejected_request(fd);}
     else if(!space||!last)error_reply(fd,400,"json","invalid_request");
     else {*space++=0;*last++=0;
-      if(strcmp(b,"GET"))error_reply(fd,405,"json","get_required");
+      int invalid_method=!*b;
+      for(char *p=b;*p;p++)if(!field_character((unsigned char)*p)){invalid_method=1;break;}
+      if(invalid_method||!*space)error_reply(fd,400,"json","invalid_request");
+      else if(strchr(space,'#'))error_reply(fd,400,"json","invalid_request_target");
+      else if(strcmp(b,"GET"))error_reply(fd,405,"json","get_required");
       else if(strcmp(last,"HTTP/1.1")&&strcmp(last,"HTTP/1.0"))error_reply(fd,400,"json","invalid_http_version");
       else {char *params=strchr(space,'?');if(params)*params++=0;
         if(strcmp(space,"/call"))error_reply(fd,404,"json","not_found");

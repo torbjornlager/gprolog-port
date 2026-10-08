@@ -29,6 +29,12 @@ use explicit `--auth open` for trusted development only. Normal startup requires
 `--auth-token-file FILE`; see [SECURITY.md](SECURITY.md) for setup and limitations.
 Public deployment is not supported.
 
+Run `make local-test` for the suite that needs only the private GNU Prolog
+installation. `make test` also runs outbound credential interoperability checks,
+which require the pinned SWI runtime and Trinity checkout described in
+[COMPARISON_BUILDS.md](COMPARISON_BUILDS.md). Compiled and other comparison suites
+retain their separate targets and comparison prerequisites.
+
 Outbound access is denied by default. Configure `--outbound-policy FILE` with
 exact approved origins and IP pins; see [OUTBOUND_POLICY.md](OUTBOUND_POLICY.md).
 This also applies to the RPC examples below. Redirects and ambient proxies are disabled.

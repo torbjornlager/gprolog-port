@@ -227,6 +227,32 @@ advertised as multi-user isolation.
   encoding and slow readers/writers. Verify errors never admit queries and
   forwarding headers cannot alter trust. **Done when:** the supported HTTP
   contract is unambiguous across the actual deployment path.
+  **Partial verification 2026-10-08:** raw request-line control characters now
+  receive HTTP 400 before routing or query admission. [request_line_tests.py](request_line_tests.py)
+  covers 96 method/target/version cases, NUL rejection and valid routing,
+  including split writes; normal and controller ASan/UBSan builds pass on macOS.
+  This parser-only suite does not require GNU Prolog. The pinned GNU runtime
+  was subsequently rebuilt locally: upstream `make check`, all 20 scripts in
+  `make local-test`, and `make status-check` pass, including query-level HTTP
+  paging/concurrency and request-reader tests. Logs are local ignored artifacts
+  (`check.log`, `local-test.log`, `status-check.log` at the repository root).
+  The rebuild used macOS Darwin 25.6.0 and SDK 26.5; it does not reproduce the
+  locked baseline environment. `make test` retains the peer credential checks,
+  which were blocked by the sibling Trinity revision mismatch; no SWI comparison
+  pass is claimed. The broader S10 audit remains open.
+  Parameter decoding now rejects malformed UTF-8 before query admission;
+  [parameter_encoding_tests.py](parameter_encoding_tests.py) passes 435 rejection
+  cases across goal/template/source, malformed escape and duplicate-name checks,
+  Unicode scalar boundaries, single decoding and continuation preservation in
+  normal and controller ASan/UBSan builds. The local suite and status checks were
+  rerun after this change and pass.
+  Request-line follow-up rejects invalid method tokens, empty targets and literal
+  fragment markers with HTTP 400; encoded `%23` remains query data. The method
+  and target rules follow [RFC 9112 §3](https://www.rfc-editor.org/rfc/rfc9112.html#section-3).
+  The request-line suite adds 146 invalid method-byte cases, empty-field and
+  fragment cases, plus valid unsupported-method/routing checks. Both controller
+  builds pass; parameter tests also verify continuation preservation after
+  fragment rejection and retain coverage of empty form fields.
 - [ ] **S11 — Service: abuse resistance and fairness.** Add measured global and
   per-principal request/admission controls, connection budgets, bounded queues,
   fair scheduling or rejection, and bounded failed-authentication handling.

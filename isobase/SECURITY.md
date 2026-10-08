@@ -83,6 +83,19 @@ connection closes after one response. Header reads, connection counts and
 response writes retain their existing bounds. Unauthenticated connections can
 still consume these bounded HTTP resources; there is no per-client rate limit.
 
+Request lines reject raw control characters, invalid method tokens, empty
+targets and literal `#` fragment markers before query admission. HTTP origin-form
+targets contain path and query components; see [RFC 9112 §3](https://www.rfc-editor.org/rfc/rfc9112.html#section-3).
+Encode a data `#` as `%23`. Valid unsupported method tokens retain HTTP 405.
+Parameter names and values are
+percent-decoded once (`+` becomes a space), then checked for valid UTF-8 Unicode
+scalars. Malformed escapes, decoded NULs, overlong UTF-8, surrogate encodings,
+truncated sequences and values above U+10FFFF receive HTTP 400 before query
+admission, so they cannot evict or resume a saved continuation.
+Empty fields between `&` separators are ignored; explicit empty optional source
+is accepted. Duplicate nonempty parameter names, including percent-encoded
+spellings of the same name, are rejected.
+
 Open mode allows any local client that can reach the port to execute queries.
 Browser metadata can be absent or forged by non-browser clients. Use open mode
 only for trusted development, not as an authentication substitute.
@@ -126,12 +139,17 @@ and continuation preservation after rejected requests. `make lifecycle-test`
 checks provisioning, ACL rejection, restart revocation, process core limits and
 child environment/descriptor isolation. `make test` includes
 these checks; `make compiled-test` repeats them against a compiled bundle.
+`make local-test` additionally includes [request_line_tests.py](request_line_tests.py)
+and [parameter_encoding_tests.py](parameter_encoding_tests.py), covering raw
+controls, invalid encodings, valid Unicode boundaries and continuation preservation.
 For controller memory/undefined-behavior instrumentation:
 
 ```sh
 make isobase-node-asan
 ISO_NODE=./isobase-node-asan python3 security_tests.py
 ISO_NODE=./isobase-node-asan python3 credential_lifecycle_tests.py
+ISO_NODE=./isobase-node-asan python3 request_line_tests.py
+ISO_NODE=./isobase-node-asan python3 parameter_encoding_tests.py
 ```
 
 Validation on 2026-09-26: local `make test`, compiled bundles, controller
