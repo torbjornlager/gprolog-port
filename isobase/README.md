@@ -229,6 +229,24 @@ also accept `template` (default: the goal) and `offset` (default: zero).
 As in the demonstrator, RPC chooses its own variable template and starts at
 zero; `once(true)` means one page, not one answer.
 
+The shared RPC/promise serializer encloses the goal and template texts in
+parentheses before URL encoding. Both still use one variable-name mapping and
+the existing quoted UTF-8 printer. This prevents operator precedence from
+changing their structure when a destination parses the fields together. For
+example, `X=ok` with template `X-X` is sent as `(V0=ok)` and `(V0-V0)`.
+No destination parser, public option, timeout or promise lifetime changes.
+
+`python3 rpc_framing_tests.py` captures real GNU worker requests and checks both
+fields and their shared/distinct variable names; it is included in `make rpc-test`.
+For live tests, add one or more `--peer http://127.0.0.1:PORT` arguments for
+already-running disposable peers. The fixture grants only their exact origins
+and loopback IPs through its temporary outbound policy. Twelve additional cases
+per peer check RPC/promise operator goals, operator templates, pagination,
+`once(true)`, repeated/distinct variables, caller independence and quoted
+apostrophes, backslashes and Unicode. They passed against native SWI, Trealla
+and GNU. These focused checks do not replace the pinned broader comparison or
+resolve the outstanding GNU option/lifecycle contract questions in STATUS.md.
+
 `yield(R,M,[timeout(Seconds),on_timeout(Goal)])` retains the promise after a
 wait timeout and executes `Goal` through the caller's execution policy. The
 callback defaults to `true`. A later yield can still receive the response.

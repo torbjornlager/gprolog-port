@@ -40,6 +40,13 @@ Prolog runtime. Promise references and resources belong to one query worker.
 cleanup and policy enforcement. Transport limits and compatibility differences
 are documented in the ISOBASE README.
 
+Outgoing RPC and promise requests now parenthesize the serialized goal and
+template independently, preserving their shared variable names and quoting.
+This fixes operator-goal/template interoperability with Trealla without changing
+its parser. The [framing follow-up matrix](https://github.com/torbjornlager/trinity-conformance/blob/main/reports/2026-10-21-gnu-request-framing/COVERAGE.md)
+records 94/94 required baseline selections passing across the existing nodes;
+separate diagnostics and broader audit obligations remain explicit.
+
 An optional `isobase/build_shared.py` build embeds validated, rewritten shared
 predicates and their name mappings as native code in a separate node bundle.
 Request-local source remains private and interpreted. The ordinary snapshot

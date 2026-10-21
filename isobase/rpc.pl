@@ -72,13 +72,18 @@ iso_rpc_prepare(Scope,URI,Goal,Template,Options,Base,Limit,Once,HTTP) :-
     iso_option(http_timeout,Options,30,HT),iso_http_millis(HT,HTTP),
     % Assign one set of variable names across Goal and Template.
     term_variables(pair(Goal,Template),Vars),iso_wire_names(Vars,0,Names),
-    iso_write_text(Goal,[quoted(true),ignore_ops(false),variable_names(Names)],G),
-    iso_write_text(Template,[quoted(true),ignore_ops(false),variable_names(Names)],T),
+    iso_rpc_wire_text(Goal,Names,G),iso_rpc_wire_text(Template,Names,T),
     atom_concat(U,'/call?format=prolog',B0),
     iso_param(B0,goal,G,B1),iso_param(B1,template,T,B2),
     iso_param(B2,src_text,Source,B3),iso_param(B3,once,Once,B4),
     (Timeout==none -> Base=B4
     ;iso_param(B4,timeout,Timeout,Base)).
+% Frame each term independently before URL encoding: peers may parse the
+% fields together to preserve shared variables. Keep the same Names for both.
+iso_rpc_wire_text(Term,Names,Text) :-
+    iso_write_text(Term,[quoted(true),ignore_ops(false),variable_names(Names)],Raw),
+    atom_concat('(',Raw,Prefix),atom_concat(Prefix,')',Text).
+
 iso_rpc_request(Base,Offset,Limit,HTTP,Reference) :-
     iso_param(Base,offset,Offset,B),iso_param(B,limit,Limit,URL),
     iso_net_start(URL,HTTP,rpc,Reference,Status),
