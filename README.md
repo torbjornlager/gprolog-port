@@ -2,6 +2,15 @@
 
 Created 2026-09-12, independently of the Trinity demonstrator.
 
+## Shared interoperability baseline
+
+The [draft baseline 0.1](https://github.com/torbjornlager/trinity-conformance/blob/main/baselines/0.1.md)
+and [coverage matrix](https://github.com/torbjornlager/trinity-conformance/blob/main/reports/2026-10-21-baseline-0.1/COVERAGE.md)
+include this node at ISOBASE level, using selected public HTTP and client tests.
+They do not require ACTOR or supersede the broader local contract 0.2.0,
+its ISO obligations, unresolved decisions or incomplete mode coverage. Their
+small pass counts must not replace this project's reconciliation evidence.
+
 ## Current target: ISOBASE
 
 The immediate target is now an **ISOBASE node**, with ISOTOPE a possible
