@@ -147,9 +147,11 @@ iso_remote_goal(G) :-
     (acyclic_term(G)->true;throw(error(representation_error(cyclic_term),rpc/3))).
 iso_integer(I) :- (integer(I)->true;var(I)->throw(error(instantiation_error,rpc/3));throw(error(type_error(integer,I),rpc/3))).
 iso_range(I,Min,Max) :- iso_integer(I),(I>=Min,I=<Max->true;throw(error(domain_error(request_range,I),rpc/3))).
-iso_once(true) :- !.
-iso_once(false) :- !.
-iso_once(Value) :- throw(error(domain_error(boolean,Value),rpc/3)).
+iso_once(Value) :-
+    (var(Value)->throw(error(instantiation_error,rpc/3))
+    ;Value==true->true
+    ;Value==false->true
+    ;throw(error(domain_error(boolean,Value),rpc/3))).
 iso_http_millis(T,HTTP) :-
     (T==none->throw(error(type_error(number,T),rpc/3));true),
     iso_millis(T,30000,Millis),HTTP is max(1,Millis).
@@ -165,7 +167,10 @@ iso_rpc_options(Os) :- iso_list(Os),iso_check_options(Os).
 iso_check_options([]).
 iso_check_options([O|Os]) :-
     (nonvar(O),functor(O,F,1),member(F,[limit,offset,template,once,timeout,http_timeout,src_text,src_list,src_predicates,src_uri])->true
-    ;throw(error(domain_error(rpc_option,O),rpc/3))),iso_check_options(Os).
+    ;throw(error(domain_error(rpc_option,O),rpc/3))),
+    (F==once->arg(1,O,Boolean),iso_once(Boolean)
+
+    ;true),iso_check_options(Os).
 iso_yield_options([]).
 iso_yield_options([O|Os]) :-
     (nonvar(O),(O=timeout(_);O=on_timeout(_))->true

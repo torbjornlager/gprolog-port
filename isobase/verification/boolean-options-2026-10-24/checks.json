@@ -1,0 +1,81 @@
+{
+  "build_command": [
+    "/Users/torbjorn.lager/Documents/GitHub/gprolog-port/install/bin/gplc",
+    "--no-top-level",
+    "query.pl",
+    "source.pl",
+    "policy.pl",
+    "prologue.pl",
+    "text.pl",
+    "rpc.pl",
+    "shared_empty.pl",
+    "terms.c",
+    "transport.c",
+    "worker.c",
+    "-L",
+    "-lcurl",
+    "-L",
+    "-lpthread",
+    "-o",
+    "query-worker"
+  ],
+  "build_exit": 0,
+  "stage": "/var/folders/8p/_fp_26cs6zz3_d8pdwtnh_ym0000gp/T/gnu-boolean-worker-agjv4m_l",
+  "base_revision": "0c4bc0321926654099c39229941e4ac16c9cf30c",
+  "tests": [
+    {
+      "name": "booleans",
+      "command": [
+        "python3",
+        "/Users/torbjorn.lager/Documents/GitHub/gprolog-port/isobase/boolean_option_tests.py",
+        "--worker",
+        "/var/folders/8p/_fp_26cs6zz3_d8pdwtnh_ym0000gp/T/gnu-boolean-worker-agjv4m_l/query-worker"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "framing",
+      "command": [
+        "python3",
+        "/Users/torbjorn.lager/Documents/GitHub/gprolog-port/isobase/rpc_framing_tests.py",
+        "--worker",
+        "/var/folders/8p/_fp_26cs6zz3_d8pdwtnh_ym0000gp/T/gnu-boolean-worker-agjv4m_l/query-worker"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "installed_worker_sha256": "adebe1d72dfc8bf7a5018b8b2fae532b6a2fae49860f41337abc17e8d1e7acd7",
+  "before_control": {
+    "build_command": [
+      "/Users/torbjorn.lager/Documents/GitHub/gprolog-port/install/bin/gplc",
+      "--no-top-level",
+      "query.pl",
+      "source.pl",
+      "policy.pl",
+      "prologue.pl",
+      "text.pl",
+      "rpc.pl",
+      "shared_empty.pl",
+      "terms.c",
+      "transport.c",
+      "worker.c",
+      "-L",
+      "-lcurl",
+      "-L",
+      "-lpthread",
+      "-o",
+      "before-query-worker"
+    ],
+    "build_exit": 0,
+    "test_command": [
+      "python3",
+      "/Users/torbjorn.lager/Documents/GitHub/gprolog-port/isobase/boolean_option_tests.py",
+      "--worker",
+      "/var/folders/8p/_fp_26cs6zz3_d8pdwtnh_ym0000gp/T/gnu-boolean-worker-agjv4m_l/before-query-worker"
+    ],
+    "test_exit": 1,
+    "expected_failure": true
+  },
+  "candidate_worker_sha256": "9c2ae6a4c3621481c2ab6a7302034ea31af9536b57c081b523aefccf004ea00f",
+  "temporary_stage_removed": true
+}

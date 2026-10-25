@@ -32,6 +32,7 @@ memory-test: all
 diff-test: all
 	python3 differential_tests.py
 rpc-test: all
+	python3 boolean_option_tests.py
 	python3 rpc_framing_tests.py
 	python3 rpc_tests.py
 	python3 rpc_source_tests.py

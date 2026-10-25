@@ -636,3 +636,14 @@ uses a minimum 16 MiB query reservation, evicts idle continuations first and
 returns HTTP 503 when no room remains. Actual excess triggers idle-first
 reclamation followed by largest-active termination. See MEMORY_LIMITS.md for
 error semantics, startup validation, measurements and overshoot limitations.
+
+### Strict Boolean options
+
+RPC and promise `once/1` accepts only the atoms `true` and `false`. Every
+occurrence is checked before source fetching or request allocation, including
+later duplicates. Numbers, strings/character lists and JSON wrapper terms are
+rejected; an unbound value raises an instantiation error without binding it.
+The first valid setting keeps precedence. This intentionally replaces the older
+sampled behavior that bound a pending once argument. HTTP `once=true|false`
+remains textual transport encoding. `boolean_option_tests.py --worker PATH`
+checks an isolated worker without replacing the installed runtime.
