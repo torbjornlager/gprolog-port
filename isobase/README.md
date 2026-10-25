@@ -647,3 +647,13 @@ The first valid setting keeps precedence. This intentionally replaces the older
 sampled behavior that bound a pending once argument. HTTP `once=true|false`
 remains textual transport encoding. `boolean_option_tests.py --worker PATH`
 checks an isolated worker without replacing the installed runtime.
+
+### Canonical URI inputs
+
+RPC/promise and source URI helpers normalise atom, character-list and code-list
+text to atoms. `Host:Port` remains accepted, with instantiated text host and
+integer port components. Pending components raise instantiation errors without
+binding them; other representation errors precede fetching or dispatch. Existing
+HTTP(S) syntax, origin/address permissions and source/request limits remain
+unchanged. `uri_option_tests.py --worker PATH` checks an isolated worker; no
+installed binary needs to be replaced to run the regression.

@@ -1,0 +1,10 @@
+{
+  "base_revision": "0c4bc0321926654099c39229941e4ac16c9cf30c",
+  "files": {
+    "isobase/Makefile": "028d7f7ba8d1bb7c6bef3f452d2ab8bacfec36cbcee9df8424962e6f520aab95",
+    "isobase/README.md": "4c5597b24295c9b1f276b5aacd9e02871dc2a3f0439aa36bd7afa655f1997976",
+    "isobase/boolean_option_tests.py": "3e643db882b25813624ceed2924e658b94d4aa67681e9a364002f1f0a74bb3f6",
+    "isobase/rpc.pl": "df5d45cca95ed0701e0a6280c6b4bff62fc7afa346f86386f027e58ad380118b",
+    "isobase/uri_option_tests.py": "1d07b3a95d2623b21eb1d72b75810f3c6597abee3e500fb27d82ab605b61e4b1"
+  }
+}

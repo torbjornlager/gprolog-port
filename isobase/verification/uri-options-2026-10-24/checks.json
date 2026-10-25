@@ -1,0 +1,60 @@
+{
+  "build_command": [
+    "/Users/torbjorn.lager/Documents/GitHub/gprolog-port/install/bin/gplc",
+    "--no-top-level",
+    "query.pl",
+    "source.pl",
+    "policy.pl",
+    "prologue.pl",
+    "text.pl",
+    "rpc.pl",
+    "shared_empty.pl",
+    "terms.c",
+    "transport.c",
+    "worker.c",
+    "-L",
+    "-lcurl",
+    "-L",
+    "-lpthread",
+    "-o",
+    "query-worker"
+  ],
+  "build_exit": 0,
+  "stage": "/var/folders/8p/_fp_26cs6zz3_d8pdwtnh_ym0000gp/T/gnu-boolean-worker-lj_k32ji",
+  "base_revision": "0c4bc0321926654099c39229941e4ac16c9cf30c",
+  "tests": [
+    {
+      "name": "uris",
+      "command": [
+        "python3",
+        "/Users/torbjorn.lager/Documents/GitHub/gprolog-port/isobase/uri_option_tests.py",
+        "--worker",
+        "/var/folders/8p/_fp_26cs6zz3_d8pdwtnh_ym0000gp/T/gnu-boolean-worker-lj_k32ji/query-worker"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "booleans",
+      "command": [
+        "python3",
+        "/Users/torbjorn.lager/Documents/GitHub/gprolog-port/isobase/boolean_option_tests.py",
+        "--worker",
+        "/var/folders/8p/_fp_26cs6zz3_d8pdwtnh_ym0000gp/T/gnu-boolean-worker-lj_k32ji/query-worker"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "framing",
+      "command": [
+        "python3",
+        "/Users/torbjorn.lager/Documents/GitHub/gprolog-port/isobase/rpc_framing_tests.py",
+        "--worker",
+        "/var/folders/8p/_fp_26cs6zz3_d8pdwtnh_ym0000gp/T/gnu-boolean-worker-lj_k32ji/query-worker"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "installed_worker_sha256": "adebe1d72dfc8bf7a5018b8b2fae532b6a2fae49860f41337abc17e8d1e7acd7",
+  "worker_sha256": "a52c450fdd507cec6e5510f5b3c18ae0f973c9ae7d46a8f9d366eaadbf6361ed",
+  "temporary_stage_removed": true
+}

@@ -100,9 +100,14 @@ iso_uri(URI0,URI) :-
     (iso_net_node_uri(A)->true;throw(error(domain_error(http_uri,A),rpc/3))),
     (sub_atom(A,_,1,0,'/')->atom_length(A,N),M is N-1,sub_atom(A,0,M,1,URI);URI=A).
 % A source URL identifies an exact resource, not a node base URL.
-iso_source_uri(Host:Port,URI) :- nonvar(Host),atom(Host),integer(Port),!,
+iso_source_uri(Input,URI) :- nonvar(Input),Input=Host0:Port,!,
+    (acyclic_term(Input)->true;throw(error(representation_error(cyclic_term),rpc/3))),
+    (var(Host0)->throw(error(instantiation_error,rpc/3));iso_text(Host0,Host)),
+    iso_integer(Port),
     iso_number_atom(Port,P),atom_concat('http://',Host,A),atom_concat(A,':',B),atom_concat(B,P,URI).
 iso_source_uri(URI0,A) :-
+    (var(URI0)->throw(error(instantiation_error,rpc/3));true),
+    (acyclic_term(URI0)->true;throw(error(representation_error(cyclic_term),rpc/3))),
     iso_text(URI0,A),
     ((sub_atom(A,0,7,_,'http://');sub_atom(A,0,8,_,'https://'))->true
     ;throw(error(domain_error(http_uri,A),rpc/3))).
@@ -169,7 +174,7 @@ iso_check_options([O|Os]) :-
     (nonvar(O),functor(O,F,1),member(F,[limit,offset,template,once,timeout,http_timeout,src_text,src_list,src_predicates,src_uri])->true
     ;throw(error(domain_error(rpc_option,O),rpc/3))),
     (F==once->arg(1,O,Boolean),iso_once(Boolean)
-
+    ;F==src_uri->arg(1,O,SourceURI),iso_source_uri(SourceURI,_)
     ;true),iso_check_options(Os).
 iso_yield_options([]).
 iso_yield_options([O|Os]) :-
