@@ -164,3 +164,11 @@ certification or count differences in the old draft as passes.
 comparison family without replacing historical evidence. `--trace-peer` records
 its disposable peer's HTTP responses for fixture/admission diagnosis. Those
 comparisons keep their original assertions and nonzero status on disagreement.
+
+The current-manual candidate now rejects `template/1` and `offset/1` on
+`rpc/3`, requires positive page sizes and validates every scalar/source
+occurrence before fetching or dispatching. `yield/3` checks all timeout and
+callback values before collection, preserving the promise after invalid options.
+The 55-assertion option fixture checks rejection without peer requests, duplicate
+validation, first-setting precedence, source-before-I/O and promise retry. These
+are runtime fixes against the current manual, independent of the retained draft.

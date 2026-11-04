@@ -9,7 +9,7 @@
 :- foreign(iso_net_nonce(term)).
 
 iso_rpc(Scope,URI,Goal,Options) :-
-    iso_rpc_options(Options), iso_remote_goal(Goal),
+    iso_rpc_options(Scope,rpc,Options), iso_remote_goal(Goal),
     term_variables(Goal,Vars),Template=..[v|Vars],
     % rpc freezes its wire goal before option normalization can bind shared
     % variables; promise deliberately captures after normalization instead.
@@ -28,7 +28,7 @@ iso_rpc_pages(Base,Offset,Limit,Once,HTTP,Template) :-
 
 iso_promise(Scope,URI,Goal,Reference,Options) :-
     (var(Reference)->true;throw(error(uninstantiation_error(Reference),promise/4))),
-    iso_rpc_options(Options),iso_remote_goal(Goal),
+    iso_rpc_options(Scope,promise,Options),iso_remote_goal(Goal),
     iso_option(template,Options,Goal,Template),
     iso_option(offset,Options,0,Offset),iso_range(Offset,0,1000000000),
     iso_rpc_prepare(Scope,URI,Goal,Template,Options,Base,Limit,_Once,HTTP),
@@ -170,17 +170,30 @@ iso_is_list(L) :- nonvar(L),(L=[];L=[_|T],iso_is_list(T)).
 iso_list(L) :-
     (acyclic_term(L)->true;throw(error(representation_error(cyclic_term),rpc/3))),
     (iso_is_list(L)->true;throw(error(type_error(list,L),rpc/3))).
-iso_rpc_options(Os) :- iso_list(Os),iso_check_options(Os).
-iso_check_options([]).
-iso_check_options([O|Os]) :-
-    (nonvar(O),functor(O,F,1),member(F,[limit,offset,template,once,timeout,http_timeout,src_text,src_list,src_predicates,src_uri])->true
+% Validate every occurrence before source fetching or network dispatch.
+iso_rpc_options(Scope,Kind,Os) :- iso_list(Os),iso_check_options(Scope,Kind,Os).
+iso_check_options(_,_,[]).
+iso_check_options(Scope,Kind,[O|Os]) :-
+    (nonvar(O),functor(O,F,1),member(F,[limit,offset,template,once,timeout,http_timeout,src_text,src_list,src_predicates,src_uri]),
+     (Kind==promise;F\==offset,F\==template)->true
     ;throw(error(domain_error(rpc_option,O),rpc/3))),
-    (F==once->arg(1,O,Boolean),iso_once(Boolean)
-    ;F==src_uri->arg(1,O,SourceURI),iso_source_uri(SourceURI,_)
-    ;true),iso_check_options(Os).
+    arg(1,O,V),iso_rpc_option_value(Scope,F,V),iso_check_options(Scope,Kind,Os).
+iso_rpc_option_value(_,limit,V) :-
+    iso_integer(V),(V>0->iso_range(V,1,10000000000);throw(error(type_error(positive_integer,V),rpc/3))).
+iso_rpc_option_value(_,offset,V) :- iso_range(V,0,1000000000).
+iso_rpc_option_value(_,template,_).
+iso_rpc_option_value(_,once,V) :- iso_once(V).
+iso_rpc_option_value(_,timeout,V) :- (var(V)->true;iso_millis(V,0,_)).
+iso_rpc_option_value(_,http_timeout,V) :- iso_http_millis(V,_).
+iso_rpc_option_value(_,src_uri,V) :- iso_source_uri(V,_).
+iso_rpc_option_value(_,src_text,V) :- iso_text(V,_).
+iso_rpc_option_value(_,src_list,V) :- iso_list(V).
+iso_rpc_option_value(Scope,src_predicates,V) :- iso_list(V),iso_export(Scope,V,_).
 iso_yield_options([]).
 iso_yield_options([O|Os]) :-
     (nonvar(O),(O=timeout(_);O=on_timeout(_))->true
-    ;throw(error(domain_error(yield_option,O),yield/3))),iso_yield_options(Os).
+    ;throw(error(domain_error(yield_option,O),yield/3))),
+    (O=timeout(T)->iso_millis(T,-1,_);O=on_timeout(Goal),iso_remote_goal(Goal)),
+    iso_yield_options(Os).
 
 iso_number_atom(N,A) :- number_codes(N,C),atom_codes(A,C).

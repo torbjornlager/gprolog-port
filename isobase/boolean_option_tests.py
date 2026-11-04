@@ -63,6 +63,22 @@ def run(worker):
         expect(f'findall(X,rpc({uri},X=ok,[once(true),once(false),limit(1)]),Xs),Xs==[ok]')
         expect(f'findall(X,rpc({uri},X=ok,[once(false),once(true),limit(1)]),Xs),Xs==[ok,done]')
         expect(f'promise({uri},X=ok,R,[once(true),template(pair(X,X))]),yield(R,A),A==success([pair(ok,ok)],false),var(X)')
+        for kind in ['rpc','promise']:
+            for options,formal in [('[limit(1),limit(0)]','type_error(positive_integer,0)'),
+                    ('[limit(1),limit(bad)]','type_error(integer,bad)'),
+                    ('[timeout(none),timeout(bad)]','type_error(number,bad)'),
+                    ('[http_timeout(1),http_timeout(bad)]','type_error(number,bad)'),
+                    ("[src_uri('http://127.0.0.1:1/source'),limit(0)]",'type_error(positive_integer,0)')]:
+                goal=f'rpc({uri},true,{options})' if kind=='rpc' else f'promise({uri},true,R,{options})'
+                before=len(server.requests)
+                expect(f'catch(({goal},fail),error({formal},_),true)')
+                assert len(server.requests)==before
+        for option in ['offset(0)','template(X)']:
+            before=len(server.requests)
+            expect(f'catch((rpc({uri},true,[{option}]),fail),error(domain_error(rpc_option,_),_),true),var(X)')
+            assert len(server.requests)==before
+        for options in ['[timeout(1),timeout(bad)]','[on_timeout(42)]']:
+            expect(f'promise({uri},X=ok,R,[once(true),template(pair(X,X))]),catch((yield(R,_,{options}),fail),error(_,_),true),yield(R,success([pair(ok,ok)],false)),var(X)')
         print(f'PASS {count} strict Boolean, zero-request, precedence, paging and sharing assertions')
     finally:
         server.shutdown()

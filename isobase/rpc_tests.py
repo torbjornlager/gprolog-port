@@ -105,11 +105,7 @@ with tempfile.TemporaryFile(mode='w+') as log:
             error(f"rpc('{uri}',true,[once(O)])",'instantiation_error')
             assert worker(f"rpc('{uri}',fail)")==[{'type':'failure'}]
             zero=worker(f"rpc('{uri}',throw(should_not_run),[limit(0)])")
-            if uri==gu:
-                assert zero==[{'type':'failure'}],zero
-            else:
-                assert len(zero)==1 and zero[0]['type']=='error' and 'positive_integer' in zero[0]['term'],zero
-                print('SWI retains its documented positive-page-size boundary; GNU zero-limit failure remains separate')
+            assert len(zero)==1 and zero[0]['type']=='error' and 'positive_integer' in zero[0]['term'],zero
             error(f"rpc('{uri}',throw(boom))",'boom')
             expect(f"promise('{uri}',member(X,[a,b,c]),R,[template(X),limit(1),offset(1)]),yield(R,M),M=success([Y],true)",['b'],template='Y')
             expect(f"promise('{uri}',fail,R),yield(R,M)",['failure'],template='M')
@@ -191,7 +187,7 @@ with tempfile.TemporaryFile(mode='w+') as log:
             expect(f"findall(N,(between(1,24,N),promise('{fake}/{path}',true,R),catch(yield(R,_),error({kind},_),true),yield(R,_,[on_timeout(true)])),Ns),length(Ns,X)",['24'])
         error("rpc('file:///etc/passwd',true)",'http_uri')
         error(f"rpc('{gu}',true,[once(maybe)])",'boolean')
-        error(f"rpc('{gu}',true,[limit(-1)])",'request_range')
+        error(f"rpc('{gu}',true,[limit(-1)])",'positive_integer')
         got=worker('true',source='rpc(a,b).')
         assert got[0]['type']=='error' and 'redefine' in got[0]['term'],got
         error(f"rpc('{gu}',true,[src_predicates([human/1])])",'permission_error')
