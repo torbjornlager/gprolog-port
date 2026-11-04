@@ -66,4 +66,34 @@ static int iso_query_memory(pid_t supervisor,uint64_t *bytes) {
   }
   return 1;
 }
+
+#ifdef __linux__
+#include <dirent.h>
+/* Contained descendants cannot change process groups. Include children forked
+ * by any worker thread and adopted orphans, not only the direct worker PID. */
+static int iso_process_group_member(pid_t pid,pid_t group) {
+  char path[64],line[4096];snprintf(path,sizeof path,"/proc/%ld/stat",(long)pid);
+  FILE *f=fopen(path,"r");if(!f)return errno==ENOENT||errno==ESRCH?0:-1;
+  errno=0;int ok=fgets(line,sizeof line,f)!=NULL,why=errno;fclose(f);
+  if(!ok&&(why==ESRCH||why==ENOENT))return 0;
+  char *end=ok?strrchr(line,')'):NULL,state;long parent,pg;
+  if(!end||sscanf(end+1," %c %ld %ld",&state,&parent,&pg)!=3)return -1;
+  return pg==(long)group&&state!='Z'&&state!='X';
+}
+static int iso_group_memory(pid_t group,uint64_t *bytes) {
+  *bytes=0;DIR *proc=opendir("/proc");if(!proc)return 0;
+  struct dirent *entry;int good=1,count=0;
+  while((entry=readdir(proc))) {
+    char *end;long value=strtol(entry->d_name,&end,10);
+    if(*end||value<=0||value>INT_MAX)continue;
+    pid_t pid=(pid_t)value;int owned=iso_process_group_member(pid,group);
+    if(owned<0){good=0;break;}if(!owned)continue;
+    uint64_t memory=0;int measured=iso_memory_bytes(pid,&memory);
+    owned=iso_process_group_member(pid,group);if(!owned)continue;
+    if(owned<0||!measured||++count>32||memory>UINT64_MAX-*bytes){good=0;break;}
+    *bytes+=memory;
+  }
+  closedir(proc);return good;
+}
+#endif
 #endif

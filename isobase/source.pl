@@ -7,9 +7,18 @@ iso_load_shared(File) :- iso_load_file(shared,File).
 iso_load_file(Scope,File) :-
     op(1150, fx, [dynamic,multifile,discontiguous]),
     open(File, read, Stream),
+    iso_load_stream(Scope,Stream,close(Stream)).
+
+iso_load_source_text(Text) :- iso_load_text(local,Text).
+iso_load_shared_text(Text) :- iso_load_text(shared,Text).
+iso_load_text(Scope,Text) :-
+    op(1150,fx,[dynamic,multifile,discontiguous]),
+    open_input_atom_stream(Text,Stream),
+    iso_load_stream(Scope,Stream,close_input_atom_stream(Stream)).
+iso_load_stream(Scope,Stream,Close) :-
     catch(iso_read_source(Stream, Terms), Error,
-          (close(Stream), throw(Error))),
-    close(Stream),
+          (call(Close), throw(Error))),
+    call(Close),
     iso_prepare_source(Terms, Clauses),
     iso_effective_source(Scope,Clauses,Effective),
     iso_register_source(Scope,Effective),

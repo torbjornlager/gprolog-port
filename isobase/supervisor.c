@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "protocol.h"
 #define _POSIX_C_SOURCE 200809L
 #define _DARWIN_C_SOURCE
@@ -15,12 +16,14 @@
 #include <time.h>
 #include <unistd.h>
 #include "memory.h"
+#include "linux_query_jail.h"
 
 /* One supervised query lifetime. The HTTP controller owns admission and the
  * public protocol; this process owns worker budgets, pipes and cleanup. */
 static volatile sig_atomic_t interrupted;
 static pid_t child=-1;
 static uint64_t memory_limit;
+static int contained;
 static void on_signal(int sig) { interrupted=sig; }
 static long long now_ms(void) {
   struct timespec t;
@@ -34,6 +37,7 @@ static void reap(void) {
   child=-1;
 }
 static const char *memory_status(void) {
+  if(contained)return NULL; /* privileged controller samples the complete query tree */
   uint64_t own,worker;
   if(!iso_memory_bytes(getpid(),&own))return "memory_monitor_failed";
   if(!iso_memory_bytes(child,&worker)) {
@@ -105,10 +109,15 @@ int main(int argc,char **argv) {
   long time_limit=1000,idle_limit=30000,heap=16384,max_output=1048576;
   memory_limit=(uint64_t)ISO_DEFAULT_MEMORY_MB*1024*1024;
   const char *source=NULL,*shared=NULL,*offset="0",*format="private";
+  const char *jail=NULL;long jail_uid=0;int source_fd=0,shared_fd=0;
   for (int i=3;i<argc;i+=2) {
     if (!strcmp(argv[i],"--source")) source=argv[i+1];
     else if (!strcmp(argv[i],"--shared-db")) shared=argv[i+1];
     else if (!strcmp(argv[i],"--offset")) { number(argv[i+1],0,1000000000);offset=argv[i+1]; }
+    else if (!strcmp(argv[i],"--jail")) jail=argv[i+1];
+    else if (!strcmp(argv[i],"--uid")) jail_uid=number(argv[i+1],20000,60000);
+    else if (!strcmp(argv[i],"--source-fd")) {source=argv[i+1];source_fd=1;}
+    else if (!strcmp(argv[i],"--shared-db-fd")) {shared=argv[i+1];shared_fd=1;}
     else if (!strcmp(argv[i],"--format")) {
       format=argv[i+1];if (strcmp(format,"json") && strcmp(format,"prolog") && strcmp(format,"private")) return 2;
     }
@@ -123,6 +132,10 @@ int main(int argc,char **argv) {
   if (strlen(argv[0])+14>=sizeof worker) return 2;
   strcpy(worker,argv[0]);char *slash=strrchr(worker,'/');
   if (slash) strcpy(slash+1,"query-worker"); else strcpy(worker,"./query-worker");
+  if(jail) {
+    if(!iso_enter_query_jail(jail,(uid_t)jail_uid)){fprintf(stderr,"Cannot enter query containment\n");return 2;}
+    contained=1;strcpy(worker,"/query-worker");
+  } else if(jail_uid||source_fd||shared_fd)return 2;
   int commands[2],answers[2],diagnostics[2];
   if (pipe(commands)||pipe(answers)||pipe(diagnostics)) { perror("pipe");return 2; }
   signal(SIGPIPE,SIG_IGN);
@@ -143,12 +156,12 @@ int main(int argc,char **argv) {
     if (!strcmp(format,"prolog")) setenv("ISO_PROLOG_DISPLAY","1",1);
     else unsetenv("ISO_PROLOG_DISPLAY");
     setenv("ISO_OFFSET",offset,1);
-    if(shared)setenv("ISO_SHARED_DB",shared,1);
-    else unsetenv("ISO_SHARED_DB");
+    if(shared&&shared_fd){setenv("ISO_SHARED_DB_FD",shared,1);unsetenv("ISO_SHARED_DB");}
+    else {unsetenv("ISO_SHARED_DB_FD");if(shared)setenv("ISO_SHARED_DB",shared,1);else unsetenv("ISO_SHARED_DB");}
     if (setenv("GLOBALSZ",size,1) || setenv("LOCALSZ","8192",1) ||
         setenv("TRAILSZ","4096",1) || setenv("CSTRSZ","4096",1)) _exit(126);
     struct rlimit core={0,0};if (setrlimit(RLIMIT_CORE,&core)) _exit(126);
-    if (source) execl(worker,worker,argv[1],argv[2],"--source",source,(char *)NULL);
+    if (source) execl(worker,worker,argv[1],argv[2],source_fd?"--source-fd":"--source",source,(char *)NULL);
     else execl(worker,worker,argv[1],argv[2],(char *)NULL);
     _exit(127);
   }

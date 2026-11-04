@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #define __GPROLOG_FOREIGN_STRICT__
 #include "gprolog.h"
 static int json_bindings,prolog_display,empty_page;
@@ -84,6 +85,17 @@ static int load_source(const char *file,const char *loader) {
   Pl_Query_End(PL_RECOVER);
   return status==PL_SUCCESS;
 }
+static int load_source_fd(const char *number,const char *loader) {
+  char *end;long fd=strtol(number,&end,10);struct stat info;
+  if(*end||fd<3||fd>4||fstat((int)fd,&info)||!S_ISREG(info.st_mode)||info.st_size<0||info.st_size>1024*1024)return 0;
+  char *text=calloc((size_t)info.st_size+1,1);if(!text)return 0;
+  size_t used=0;while(used<(size_t)info.st_size){ssize_t n=read((int)fd,text+used,(size_t)info.st_size-used);if(n<0&&errno==EINTR)continue;if(n<=0){free(text);return 0;}used+=(size_t)n;}
+  close((int)fd);if(memchr(text,0,used)){free(text);return 0;}
+  Pl_Query_Begin(PL_TRUE);PlTerm arg=Pl_Mk_Atom(Pl_Create_Allocate_Atom(text));free(text);
+  int status=Pl_Query_Call(Pl_Find_Atom(loader),1,&arg);
+  if(status==PL_EXCEPTION)error_event(Pl_Get_Exception());
+  Pl_Query_End(PL_RECOVER);return status==PL_SUCCESS;
+}
 static long heap_used(void) {
   Pl_Query_Begin(PL_TRUE);
   PlTerm a[2]={Pl_Mk_Atom(Pl_Find_Atom("global_stack")),Pl_Mk_Variable()};
@@ -113,7 +125,7 @@ static int recovery_test(void) {
 int main(int argc,char **argv) {
   if(!iso_disable_dumps()){fprintf(stderr,"Cannot disable process core dumps\n");return 2;}
   int recovery=argc==2 && !strcmp(argv[1],"--recovery-test");
-  int source=argc==5 && !strcmp(argv[3],"--source");
+  int source=argc==5 && (!strcmp(argv[3],"--source")||!strcmp(argv[3],"--source-fd"));
   if (argc!=3 && !recovery && !source) {
     fprintf(stderr,"usage: %s 'query(Goal,Template)' PAGE_SIZE [--source FILE]\n",argv[0]);
     return 2;
@@ -128,8 +140,8 @@ int main(int argc,char **argv) {
   json_bindings=getenv("ISO_JSON_BINDINGS")!=NULL;
   prolog_display=getenv("ISO_PROLOG_DISPLAY")!=NULL;
   if (recovery) { int rc=recovery_test(); Pl_Stop_Prolog(); return rc; }
-  const char *shared=getenv("ISO_SHARED_DB");
-  if (shared) {
+  const char *shared=getenv("ISO_SHARED_DB"),*shared_fd=getenv("ISO_SHARED_DB_FD");
+  if (shared||shared_fd) {
     Pl_Query_Begin(PL_TRUE);
     PlTerm mode=Pl_Mk_Atom(Pl_Create_Atom("compiled"));
     int compiled=Pl_Query_Call(Pl_Find_Atom("iso_shared_mode"),1,&mode)==PL_SUCCESS;
@@ -140,7 +152,8 @@ int main(int argc,char **argv) {
     }
   }
   if (shared && !load_source(shared,"iso_load_shared")) { Pl_Stop_Prolog(); return 0; }
-  if (source && !load_source(argv[4],"iso_load_source")) { Pl_Stop_Prolog(); return 0; }
+  if(shared_fd&&!load_source_fd(shared_fd,"iso_load_shared_text")){Pl_Stop_Prolog();return 0;}
+  if (source && !(strcmp(argv[3],"--source-fd")?load_source(argv[4],"iso_load_source"):load_source_fd(argv[4],"iso_load_source_text"))) { Pl_Stop_Prolog(); return 0; }
   PlTerm a[2]; int status=begin(argv[1],a);
   const char *offset_text=getenv("ISO_OFFSET");
   long offset=offset_text?strtol(offset_text,NULL,10):0;

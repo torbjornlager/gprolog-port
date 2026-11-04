@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 /* Only the owning Prolog thread touches GNU's runtime. Network threads own
  * byte buffers; bounded slots remain allocated until joined by that thread. */
 #include <curl/curl.h>
@@ -10,6 +11,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#ifdef __linux__
+#include <sys/random.h>
+#endif
 #define __GPROLOG_FOREIGN_STRICT__
 #include "gprolog.h"
 #include "outbound_policy.h"
@@ -26,10 +30,12 @@ typedef struct {
   atomic_int cancel;
   int done, oversized;
   char *url, *body;
-  char query_owner[65];
+  char query_owner[65],purpose[8];
+  int broker;
   size_t size;
   const char *error;
 } Request;
+#include "outbound_broker.h"
 static Request requests[SLOTS];
 static long next_id=1000000000L;
 static int initialized;
@@ -90,7 +96,8 @@ static int progress(void *ctx,curl_off_t a,curl_off_t b,curl_off_t c,curl_off_t 
   (void)a;(void)b;(void)c;(void)d;return atomic_load(&((Request *)ctx)->cancel);
 }
 static void *run_request(void *ctx) {
-  Request *r=ctx;CURL *curl=curl_easy_init();
+  Request *r=ctx;if(r->broker)return run_broker_request(r);
+  CURL *curl=curl_easy_init();
   const char *error=NULL;
   char authorization[280]={0};struct curl_slist *headers=NULL;
   if(r->peer.credential_file[0]) {
@@ -173,7 +180,9 @@ PlBool iso_net_start(char *url,PlLong timeout,char *purpose,char *owner,PlTerm r
   if(!initialize())return PL_FALSE;
   if(strlen(url)>URL_MAX)return Pl_Un_String("request_too_large",status);
   if(strcmp(purpose,"rpc") && strcmp(purpose,"source"))return Pl_Un_String("outbound_denied",status);
-  OutboundPeer peer={0};const char *denied=outbound_select(url,purpose,&peer);
+  const char *broker=getenv("ISO_OUTBOUND_BROKER");
+  if(broker&&strcmp(broker,"/broker.sock"))return Pl_Un_String("outbound_denied",status);
+  OutboundPeer peer={0};const char *denied=broker?NULL:outbound_select(url,purpose,&peer);
   if(denied)return Pl_Un_String(denied,status);
   Request *r=NULL;for(int i=0;i<SLOTS;i++)if(!requests[i].id){r=&requests[i];break;}
   if(!r)return Pl_Un_String("promise_limit_exceeded",status);
@@ -188,7 +197,7 @@ PlBool iso_net_start(char *url,PlLong timeout,char *purpose,char *owner,PlTerm r
   do { if(next_id>9999999999L)next_id=1000000000L;candidate=next_id++; }
   while(lookup(candidate));
   r->id=candidate;
-  r->peer=peer;
+  r->peer=peer;r->broker=broker!=NULL;snprintf(r->purpose,sizeof r->purpose,"%s",purpose);
   r->timeout=timeout;atomic_init(&r->cancel,0);
   pthread_mutex_init(&r->mutex,NULL);pthread_cond_init(&r->ready,NULL);
   if(pthread_create(&r->thread,NULL,run_request,r)) {
@@ -240,13 +249,18 @@ PlBool iso_net_escape(char *text,PlTerm escaped) {
 /* Capabilities come from OS entropy, never Prolog's predictable RNG. */
 PlBool iso_net_nonce(PlTerm value) {
   unsigned char bytes[32];size_t used=0;
+#ifdef __linux__
+  while(used<sizeof bytes){ssize_t n=getrandom(bytes+used,sizeof bytes-used,0);if(n<0&&errno==EINTR)continue;if(n<=0)return PL_FALSE;used+=(size_t)n;}
+#else
   int fd=open("/dev/urandom",O_RDONLY|O_CLOEXEC);if(fd<0)return PL_FALSE;
   while(used<sizeof bytes) {
     ssize_t n=read(fd,bytes+used,sizeof bytes-used);
     if(n<0&&errno==EINTR)continue;
     if(n<=0){close(fd);return PL_FALSE;}used+=(size_t)n;
   }
-  close(fd);char hex[65];const char *digits="0123456789abcdef";
+  close(fd);
+#endif
+  char hex[65];const char *digits="0123456789abcdef";
   for(size_t i=0;i<sizeof bytes;i++){hex[2*i]=digits[bytes[i]>>4];hex[2*i+1]=digits[bytes[i]&15];}
   hex[64]=0;return Pl_Un_String(hex,value);
 }

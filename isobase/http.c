@@ -29,7 +29,7 @@
 #define CONNECTION_IDLE_MS 10000
 #define HEADER_READ_MS 2000
 
-typedef struct { pid_t pid; int in,out,busy,terminated; long offset; long long expires; unsigned long long cached_order; uint64_t memory; const char *abort_reason; char *key; char owner[65],budget[65]; char source[PATH_MAX]; } Query;
+typedef struct { pid_t pid; int in,out,busy,terminated; long offset; long long expires; unsigned long long cached_order; uint64_t memory; const char *abort_reason; char *key; char owner[65],budget[65]; unsigned int jail_uid; char lease[PATH_MAX]; char source[PATH_MAX]; } Query;
 typedef struct { char *goal,*template,*source,*format; const char *owner,*budget; long offset,limit; int once,timeout; } Request;
 static Query queries[MAX_QUERIES];
 /* Updated under mutex whenever a continuation is inserted/reinserted. */
@@ -37,6 +37,9 @@ static unsigned long long cache_order;
 static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t drained=PTHREAD_COND_INITIALIZER;
 static int clients[MAX_CLIENTS],client_count,max_queries=8,time_ms=1000,idle_ms=30000;
+static const char *query_jail,*lease_directory;
+static int parent_fd=-1;
+static unsigned int next_jail_uid=20000;
 static int max_owner_queries=MAX_QUERIES,max_budget_queries=MAX_QUERIES,require_query_owner,require_query_budget;
 static int memory_mb=ISO_DEFAULT_MEMORY_MB;
 static uint64_t total_memory=(uint64_t)ISO_DEFAULT_TOTAL_MEMORY_MB*1024*1024;
@@ -95,12 +98,25 @@ static void finish_rejected_request(int fd) {
     drained+=(size_t)n;
   }
 }
+static void terminate_query(Query *q) {
+  if(q->terminated)return;
+  if(query_jail) {
+    /* The process group is created atomically by posix_spawn. Workers cannot
+     * change groups/sessions; the controller is their subreaper. */
+    kill(-q->pid,SIGKILL);kill(q->pid,SIGKILL);
+    while(waitpid(q->pid,NULL,0)<0&&errno==EINTR){}
+    while(waitpid(-q->pid,NULL,0)>0||errno==EINTR){}
+  } else if(!q->terminated) {
+    kill(q->pid,SIGTERM);while(waitpid(q->pid,NULL,0)<0&&errno==EINTR){}
+  }
+}
 /* Called with the registry lock, never while another thread owns this slot. */
 static void release(Query *q) {
   if(!q->pid)return;
   close(q->in);close(q->out);
-  if(!q->terminated){kill(q->pid,SIGTERM);while(waitpid(q->pid,NULL,0)<0 && errno==EINTR){}}
+  terminate_query(q);
   if(*q->source)unlink(q->source);
+  if(*q->lease)unlink(q->lease);
   free(q->key);memset(q,0,sizeof *q);
 }
 /* All memory-policy state is protected by mutex. An active slot and its pipe
@@ -108,8 +124,7 @@ static void release(Query *q) {
 static void abort_query(Query *q,const char *reason) {
   if(q->terminated)return;
   q->abort_reason=reason;
-  kill(q->pid,SIGTERM);
-  while(waitpid(q->pid,NULL,0)<0 && errno==EINTR){}
+  terminate_query(q);
   q->terminated=1;q->memory=0;
 }
 static Query *oldest_idle(Query *protected) {
@@ -128,7 +143,15 @@ static int sample_memory(uint64_t *actual,uint64_t *charged) {
   *charged=*actual;
   for(int i=0;i<max_queries;i++) {
     Query *q=&queries[i];if(!q->pid||q->terminated)continue;
+#ifdef __linux__
+    if(query_jail?!iso_group_memory(q->pid,&q->memory):!iso_query_memory(q->pid,&q->memory))return 0;
+#else
     if(!iso_query_memory(q->pid,&q->memory))return 0;
+#endif
+    if(query_jail&&q->memory>(uint64_t)memory_mb*1024*1024) {
+      if(q->busy)abort_query(q,"memory_limit_exceeded");else release(q);
+      continue;
+    }
     uint64_t charge=q->memory>admission_reserve()?q->memory:admission_reserve();
     if(q->memory>UINT64_MAX-*actual||charge>UINT64_MAX-*charged)return 0;
     *actual+=q->memory;*charged+=charge;
@@ -248,6 +271,7 @@ static char *key_for(Request *r) {
   return key;
 }
 static int start_query(Query *q,Request *r,char *key) {
+  int source_fd=-1,shared_fd=-1;
   int in[2],out[2];if(pipe(in))return 0;
   if(pipe(out)){close(in[0]);close(in[1]);return 0;}
   cloexec(in[0]);cloexec(in[1]);cloexec(out[0]);cloexec(out[1]);
@@ -263,20 +287,47 @@ static int start_query(Query *q,Request *r,char *key) {
   snprintf(limit,sizeof limit,"%ld",r->limit);snprintf(offset,sizeof offset,"%ld",r->offset);
   snprintf(budget,sizeof budget,"%d",time_ms);snprintf(idle,sizeof idle,"%d",idle_ms+250);
   snprintf(memory,sizeof memory,"%d",memory_mb);
-  char *args[]={supervisor,term,limit,"--offset",offset,"--format",r->format,"--time-ms",budget,"--idle-ms",idle,"--memory-mb",memory,NULL,NULL,NULL,NULL,NULL};
+  char uid_text[16];
+  char *args[32]={supervisor,term,limit,"--offset",offset,"--format",r->format,"--time-ms",budget,"--idle-ms",idle,"--memory-mb",memory};
   int next=13;
-  if(*r->source){args[next++]="--source";args[next++]=q->source;}
-  if(*shared_snapshot){args[next++]="--shared-db";args[next++]=shared_snapshot;}
+  if(query_jail) {
+    for(;;) {
+      if(next_jail_uid>60000)next_jail_uid=20000;
+      unsigned int candidate=next_jail_uid++;int used=0;
+      for(int i=0;i<max_queries;i++)if(queries[i].pid&&queries[i].jail_uid==candidate)used=1;
+      if(!used){q->jail_uid=candidate;break;}
+    }
+    if(snprintf(q->lease,sizeof q->lease,"%s/%u",lease_directory,q->jail_uid)>=(int)sizeof q->lease){free(term);goto failed;}
+    int lease=open(q->lease,O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0644);
+    const char *group=r->budget?r->budget:"0000000000000000000000000000000000000000000000000000000000000000";
+    if(lease<0||!write_all(lease,group,64)||!write_all(lease,"\n",1)){if(lease>=0)close(lease);free(term);goto failed;}
+    close(lease);
+    snprintf(uid_text,sizeof uid_text,"%u",q->jail_uid);
+    args[next++]="--jail";args[next++]=(char *)query_jail;
+    args[next++]="--uid";args[next++]=uid_text;
+    if(*r->source){source_fd=open(q->source,O_RDONLY|O_CLOEXEC);if(source_fd<0){free(term);goto failed;}args[next++]="--source-fd";args[next++]="3";}
+    if(*shared_snapshot){shared_fd=open(shared_snapshot,O_RDONLY|O_CLOEXEC);if(shared_fd<0){free(term);goto failed;}args[next++]="--shared-db-fd";args[next++]="4";}
+  } else {
+    if(*r->source){args[next++]="--source";args[next++]=q->source;}
+    if(*shared_snapshot){args[next++]="--shared-db";args[next++]=shared_snapshot;}
+  }
   args[next]=NULL;
   posix_spawn_file_actions_t a;posix_spawn_file_actions_init(&a);
   posix_spawn_file_actions_adddup2(&a,in[0],0);posix_spawn_file_actions_adddup2(&a,out[1],1);
-  posix_spawn_file_actions_addopen(&a,2,"/dev/null",O_WRONLY,0);
+  if(!query_jail)posix_spawn_file_actions_addopen(&a,2,"/dev/null",O_WRONLY,0);
   /* Explicit configuration only; never inherit ambient credentials or loaders. */
   const char *names[]={"LANG","LC_ALL","LC_CTYPE","TZ","ISO_CA_FILE","ISO_OUTBOUND_POLICY"};
-  char *environment[7]={0};size_t count=0;int status=0;
+  char *environment[8]={0};size_t count=0;int status=0;
   for(size_t i=0;i<sizeof names/sizeof names[0];i++) {
+    if(query_jail&&i>=4)continue;
     const char *value=getenv(names[i]);
     if(value) {if(asprintf(&environment[count],"%s=%s",names[i],value)<0){status=ENOMEM;break;}count++;}
+  }
+  if(query_jail) {
+    environment[count++]=strdup("ISO_OUTBOUND_BROKER=/broker.sock");
+    if(!environment[count-1])status=ENOMEM;
+    if(source_fd>=0)posix_spawn_file_actions_adddup2(&a,source_fd,3);else posix_spawn_file_actions_addclose(&a,3);
+    if(shared_fd>=0)posix_spawn_file_actions_adddup2(&a,shared_fd,4);else posix_spawn_file_actions_addclose(&a,4);
   }
   posix_spawnattr_t attr;int initialized=posix_spawnattr_init(&attr)==0;
   if(!initialized)status=ENOMEM;
@@ -284,7 +335,7 @@ static int start_query(Query *q,Request *r,char *key) {
   if(!status)status=posix_spawnattr_setflags(&attr,POSIX_SPAWN_CLOEXEC_DEFAULT);
 #elif defined(__GLIBC__)
 #if __GLIBC_PREREQ(2,34)
-  if(!status)status=posix_spawn_file_actions_addclosefrom_np(&a,3);
+  if(!status)status=posix_spawn_file_actions_addclosefrom_np(&a,query_jail?5:3);
 #else
   status=ENOTSUP;
 #endif
@@ -292,13 +343,17 @@ static int start_query(Query *q,Request *r,char *key) {
   /* No silent fallback that could inherit a credential descriptor. */
   status=ENOTSUP;
 #endif
+  if(!status&&query_jail){status=posix_spawnattr_setpgroup(&attr,0);if(!status)status=posix_spawnattr_setflags(&attr,POSIX_SPAWN_SETPGROUP);}
   if(!status)status=posix_spawn(&q->pid,supervisor,&a,&attr,args,environment);
   if(initialized)posix_spawnattr_destroy(&attr);
   for(size_t i=0;i<count;i++)free(environment[i]);
   posix_spawn_file_actions_destroy(&a);free(term);
+  if(source_fd>=0){close(source_fd);source_fd=-1;}if(shared_fd>=0){close(shared_fd);shared_fd=-1;}
   if(status){q->pid=0;goto failed;}
   close(in[0]);close(out[1]);q->in=in[1];q->out=out[0];q->key=key;snprintf(q->owner,sizeof q->owner,"%s",r->owner?r->owner:"");snprintf(q->budget,sizeof q->budget,"%s",r->budget?r->budget:"");q->busy=1;return 1;
 failed:
+  if(*q->lease){unlink(q->lease);q->lease[0]=0;}
+  if(source_fd>=0)close(source_fd);if(shared_fd>=0)close(shared_fd);
   close(in[0]);close(in[1]);close(out[0]);close(out[1]);if(*q->source)unlink(q->source);q->source[0]=0;return 0;
 }
 static int validate_shared(void) {
@@ -498,9 +553,12 @@ int main(int argc,char **argv) {
     if(!strcmp(argv[i],"--auth-token-file")){if(auth_mode)return 2;auth_mode=1;token_file=argv[i+1];continue;}
     if(!strcmp(argv[i],"--auth")){if(auth_mode||strcmp(argv[i+1],"open"))return 2;auth_mode=2;continue;}
     if(!strcmp(argv[i],"--outbound-policy")){if(setenv("ISO_OUTBOUND_POLICY",argv[i+1],1))return 2;continue;}
+    if(!strcmp(argv[i],"--lease-dir")){lease_directory=argv[i+1];continue;}
+    if(!strcmp(argv[i],"--query-jail")){query_jail=argv[i+1];continue;}
     if(!strcmp(argv[i],"--shared-db")){shared_file=argv[i+1];continue;}
     if(!integer(argv[i+1],0,3600000,&n))return 2;
-    if(!strcmp(argv[i],"--port")&&n<=65535)port=n;
+    if(!strcmp(argv[i],"--parent-fd")&&n>=3&&n<=1023)parent_fd=(int)n;
+    else if(!strcmp(argv[i],"--port")&&n<=65535)port=n;
     else if(!strcmp(argv[i],"--max-queries")&&n>=1&&n<=MAX_QUERIES)max_queries=(int)n;
     else if(!strcmp(argv[i],"--max-owner-queries")&&n>=1&&n<=MAX_QUERIES)max_owner_queries=(int)n;
     else if(!strcmp(argv[i],"--max-budget-queries")&&n>=1&&n<=MAX_QUERIES)max_budget_queries=(int)n;
@@ -510,6 +568,15 @@ int main(int argc,char **argv) {
     else if(!strcmp(argv[i],"--memory-mb")&&n>=1&&n<=ISO_MAX_MEMORY_MB)memory_mb=(int)n;
     else if(!strcmp(argv[i],"--total-memory-mb")&&n>=1&&n<=ISO_MAX_MEMORY_MB)total_memory=(uint64_t)n*1024*1024;
     else if(!strcmp(argv[i],"--idle-ms")&&n>=1)idle_ms=(int)n;else return 2;}
+  if(query_jail) {
+#ifdef __linux__
+    if(geteuid()!=0||!lease_directory||!token_file||parent_fd<3||fcntl(parent_fd,F_GETFD)<0||prctl(PR_SET_CHILD_SUBREAPER,1)) {
+      fprintf(stderr,"Contained service requires root controller, token and parent lifetime pipe\n");return 2;
+    }
+#else
+    fprintf(stderr,"Query containment requires qualified Linux\n");return 2;
+#endif
+  }
   if(!auth_mode){fprintf(stderr,"Choose --auth-token-file FILE or explicit trusted-development --auth open\n");return 2;}
   if(token_file&&!load_owner_token(token_file)){fprintf(stderr,"Invalid authentication file: require owner-only regular file containing 32-256 token characters\n");return 2;}
   if(strlen(argv[0])+18>=sizeof supervisor)return 2;
@@ -532,6 +599,7 @@ int main(int argc,char **argv) {
   bound_port=ntohs(address.sin_port);
   printf("{\"port\":%u,\"address\":\"127.0.0.1\"}\n",ntohs(address.sin_port));fflush(stdout);
   while(!stopping) {
+    if(parent_fd>=0){struct pollfd parent={parent_fd,POLLIN,0};if(poll(&parent,1,0)>0){stopping=1;break;}}
     struct pollfd p={listener,POLLIN,0};int rc=poll(&p,1,50);
     pthread_mutex_lock(&mutex);for(int i=0;i<max_queries;i++)if(queries[i].pid&&!queries[i].busy&&queries[i].expires<=now())release(&queries[i]);enforce_memory();pthread_mutex_unlock(&mutex);
     if(rc<=0)continue;pthread_mutex_lock(&mutex);int fd=accept(listener,NULL,NULL);if(fd<0){pthread_mutex_unlock(&mutex);continue;}cloexec(fd);
