@@ -3,7 +3,7 @@
 % their variables share identity. Optional source is loaded before this query.
 iso_query(Text, Template) :-
     atom_concat(Text, '.', FullText),
-    read_term_from_atom(FullText, query(Goal, Template), [syntax_error(error)]),
+    iso_language_read_atom(FullText, query(Goal, Template), [syntax_error(error)]),
     iso_execute(Goal),
     (acyclic_term(Template) -> true
     ; throw(error(representation_error(cyclic_term),iso_query/2))).
@@ -17,7 +17,7 @@ iso_alloc(N) :- length(L, 100), L=[_|_], M is N-1, iso_alloc(M).
 % HTTP JSON answers contain named goal bindings, not the explicit template.
 iso_http_json(Text, Rendered) :-
     atom_concat(Text,'.',Full),
-    read_term_from_atom(Full,query(Goal,_Template),
+    iso_language_read_atom(Full,query(Goal,_Template),
                         [syntax_error(error),variable_names(Names)]),
     iso_visible_query_vars(Goal,Names,Vars),iso_visible_names(Names,Vars,Visible),
     iso_execute(Goal),
@@ -92,6 +92,47 @@ iso_visibility_list([Context-T|Ts],Mode,Anon,Exposed,In,Out) :-
 
 % A zero-sized page validates the request but never executes its goal.
 iso_query_empty(Text,_) :-
-    atom_concat(Text,'.',Full),read_term_from_atom(Full,query(Goal,_),[syntax_error(error)]),
+    atom_concat(Text,'.',Full),iso_language_read_atom(Full,query(Goal,_),[syntax_error(error)]),
     (var(Goal)->throw(error(instantiation_error,iso_query/2));true),
     iso_rewrite(Goal,_),fail.
+
+% GNU stores atom text as UTF-8 bytes. Select character lists only at Web
+% Prolog source boundaries; do not change the runtime/compiler's own reader.
+iso_language_read_atom(Text,Term,Options) :-
+    iso_language_read(read_term_from_atom(Text,Raw,Options),Raw,Term).
+iso_language_read_stream(Stream,Term,Options) :-
+    iso_language_read(read_term(Stream,Raw,Options),Raw,Term).
+iso_language_read(Read,Raw,Term) :-
+    current_prolog_flag(double_quotes,Previous),
+    set_prolog_flag(double_quotes,chars),
+    catch((call(Read)->set_prolog_flag(double_quotes,Previous)
+          ;set_prolog_flag(double_quotes,Previous),fail),
+          Error,(set_prolog_flag(double_quotes,Previous),throw(Error))),
+    iso_reader_characters(Raw,Term).
+
+% In chars mode GNU emits one byte atom per UTF-8 byte. A valid Unicode atom
+% already occupies one whole atom and is left intact. Decode the byte-only
+% lists produced by the reader, preserving variables and sharing elsewhere.
+iso_reader_characters(Raw,Term) :-
+    (var(Raw)->Term=Raw
+    ;iso_reader_bytes(Raw,Bytes)->
+        (iso_reader_multibyte(Bytes),catch(iso_utf8_decode(Bytes,Codes),_,fail)
+        ->iso_codes_chars(Codes,Term);Term=Raw)
+    ;Raw=[H|T]->iso_reader_characters(H,RH),iso_reader_tail(T,RT),Term=[RH|RT]
+    ;compound(Raw)->Raw=..[F|Args],iso_reader_arguments(Args,ReadArgs),Term=..[F|ReadArgs]
+    ;Term=Raw).
+iso_reader_bytes(List,Bytes) :-
+    nonvar(List),
+    (List==[]->Bytes=[]
+    ;List=[A|As],nonvar(A),atom(A),atom_codes(A,[B]),
+     Bytes=[B|Bs],iso_reader_bytes(As,Bs)).
+iso_reader_multibyte([B|_]) :- B>=128,!.
+iso_reader_multibyte([_|Bs]) :- iso_reader_multibyte(Bs).
+iso_reader_tail(T,R) :-
+    (var(T)->R=T
+    ;T==[]->R=[]
+    ;T=[H|Rest]->iso_reader_characters(H,RH),iso_reader_tail(Rest,RR),R=[RH|RR]
+    ;iso_reader_characters(T,R)).
+iso_reader_arguments([],[]).
+iso_reader_arguments([A|As],[B|Bs]) :-
+    iso_reader_characters(A,B),iso_reader_arguments(As,Bs).

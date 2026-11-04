@@ -64,7 +64,7 @@ iso_rewrite_source(Scope,[C|Cs],[S|Ss]) :-
     iso_rewrite_source(Scope,Cs,Ss).
 
 iso_read_source(Stream, Terms) :-
-    read_term(Stream, Term, [syntax_error(error)]),
+    iso_language_read_stream(Stream, Term, [syntax_error(error)]),
     (Term == end_of_file -> Terms=[]
     ; Terms=[Term|Rest], iso_read_source(Stream, Rest)).
 

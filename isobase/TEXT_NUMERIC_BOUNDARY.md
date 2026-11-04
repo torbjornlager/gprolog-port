@@ -33,9 +33,9 @@ Remaining host differences:
 - GNU's lexer is not a Unicode lexer. Quote non-ASCII atoms; arbitrary Unicode
   identifiers, variable names, character-code literal syntax and Unicode escape
   syntax are not promised to match SWI.
-- Double-quoted literals are GNU code lists, not SWI string objects. In particular,
-  `"abc"` becomes `[97,98,99]`; non-ASCII double-quoted literals retain GNU byte
-  semantics. Use quoted atoms and `atom_codes/2` for Unicode code-point lists.
+- Web Prolog double-quoted literals now denote Unicode character lists, rather
+  than GNU byte-code lists. See the current reader update below. SWI string
+  objects remain a separate host representation.
 - This is selected mode/error coverage, not exhaustive validation of all modes,
   malformed/cyclic arguments, lexical forms or numeric-to-text conversions.
 
@@ -139,3 +139,14 @@ a negative power, and signed-zero atan2 quadrants. These now agree with SWI in t
 100-case higher-order/arithmetic/template batch. Other arithmetic domain boundaries
 and exhaustive floating-point equivalence remain open. Prolog template rendering
 now uses list-element precedence, without changing the underlying numeric parser.
+
+## Current Web Prolog reader (4 November 2026)
+
+The current language reader uses character lists for double-quoted literals in
+goals, private/shared source and compiled shared source. This supersedes this
+audit's earlier code-list reader observation, while retaining it as historical
+evidence. GNU's UTF-8 byte atoms are combined into whole Unicode character atoms
+at those read boundaries. Explicit integer lists and numeric code conversions
+are unchanged. `character_reader_tests.py` covers ASCII, empty and Unicode text,
+escapes, DCGs, source modes and variable sharing. The compiler and RPC wire
+parser retain their own reader settings.

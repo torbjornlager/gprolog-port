@@ -539,7 +539,10 @@ separately tested compound-DCG discrepancy in the SWI node.
 
 Unicode atom operations now use code points and preserve UTF-8 through HTTP,
 RPC and compiled shared source. Quote non-ASCII atoms. GNU retains bounded
-integers and code-list double-quoted literals; SWI strings and bignums remain
+integers. Web Prolog goals, supplied source, shared source and compiled shared
+source read double-quoted literals as Unicode character lists (`"apa"` is
+`[a,p,a]`). Explicit code lists and numeric code conversions keep their meaning.
+SWI string objects and bignums remain
 compatibility gaps. See [TEXT_NUMERIC_BOUNDARY.md](TEXT_NUMERIC_BOUNDARY.md)
 for the precise range, examples, test accounting and remaining limitations.
 

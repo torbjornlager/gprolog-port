@@ -34,6 +34,7 @@ diff-test: all
 rpc-test: all
 	python3 uri_option_tests.py
 	python3 boolean_option_tests.py
+	python3 character_reader_tests.py
 	python3 rpc_framing_tests.py
 	python3 rpc_tests.py
 	python3 rpc_source_tests.py
@@ -59,6 +60,7 @@ local-test: query-worker query-supervisor isobase-node
 	python3 comparison_config_tests.py
 	python3 tests.py
 	python3 source_tests.py
+	python3 character_reader_tests.py
 	python3 policy_tests.py
 	python3 numeric_contract_tests.py
 	python3 rpc_address_tests.py

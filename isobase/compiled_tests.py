@@ -15,6 +15,9 @@ from numeric_contract_tests import SOURCE as NUMERIC_SOURCE, check_node as check
 from rpc_address_tests import SOURCE as ADDRESS_SOURCE, check_node as check_addresses
 
 extra='''
+reader_ascii("apa").
+reader_unicode("å😀").
+reader_dcg --> "apa".
 convert_number(N,C) :- number_chars(N,C).
 round_value(A,R) :- R is round(A).
 zero_angle(R) :- R is atan2(0,0).
@@ -90,6 +93,11 @@ with tempfile.TemporaryDirectory(prefix='compiled-tests-') as temp:
     for name in ['via_call','via_variable','via_apply']:cases.append((f'{name}(widget,X)',{'src_text':shadow}))
     for name in ['via_map','via_bag']:cases.append((f'{name}(X)',{'src_text':shadow}))
     try:
+        for node in [interpreted,native]:
+            for goal in ['reader_ascii(L),L==[a,p,a]',
+                         "reader_unicode(L),L==['å','😀']",
+                         'phrase(reader_dcg,L),L==[a,p,a]']:
+                assert node.call(goal)['type']=='success',goal
         check_addresses(native)
         check_addresses(interpreted)
         check_numeric(native)
