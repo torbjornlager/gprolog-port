@@ -4,6 +4,19 @@ Decision C02, recorded 2026-09-26. Status: current implementation scope and futu
 release gates. This document defines what must be protected and what is trusted;
 it does not certify that every required protection has been implemented.
 
+## Optional contained deployment update (2026-11-04)
+
+The default trusted-owner profile described below remains unchanged. The Linux
+runtime now also supplies the optional [query jail](CONTAINMENT.md), per-query
+UIDs, process-group cleanup, visitor ownership and budget keys for a separately
+qualified presenter. That profile requires the exact minimal launch capabilities,
+an immutable jail, a validating egress broker, a lifetime pipe, and hard container
+limits; enabling only HTTP ownership is insufficient. The Trinity demonstrator
+owns and qualifies its public deployment. This does not certify other service
+wrappers, platforms, arbitrary outbound peers, or the historical full compiled
+language comparison. The local-profile descriptions of shared OS privileges and
+matching-token continuations below do not describe that opt-in jail profile.
+
 ## Deployment decision
 
 The current implementation targets **one trusted owner, with trusted clients on
