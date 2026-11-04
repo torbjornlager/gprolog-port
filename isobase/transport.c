@@ -7,6 +7,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 #define __GPROLOG_FOREIGN_STRICT__
 #include "gprolog.h"
 #include "outbound_policy.h"
@@ -23,6 +26,7 @@ typedef struct {
   atomic_int cancel;
   int done, oversized;
   char *url, *body;
+  char query_owner[65];
   size_t size;
   const char *error;
 } Request;
@@ -94,6 +98,11 @@ static void *run_request(void *ctx) {
     else if(!(headers=curl_slist_append(NULL,authorization)))error="out_of_memory";
     outbound_wipe(authorization,sizeof authorization);
   }
+  if(!error&&r->query_owner[0]) {
+    char owner_header[96];snprintf(owner_header,sizeof owner_header,"X-Web-Prolog-Query-Owner: %s",r->query_owner);
+    struct curl_slist *next=curl_slist_append(headers,owner_header);
+    if(next)headers=next;else error="out_of_memory";
+  }
   if(error){if(curl)curl_easy_cleanup(curl);}
   else if(!curl)error="transport_initialization_failed";
   else {
@@ -160,7 +169,7 @@ static void release(Request *r) {
   pthread_cond_destroy(&r->ready);pthread_mutex_destroy(&r->mutex);
   free(r->url);free(r->body);memset(r,0,sizeof *r);
 }
-PlBool iso_net_start(char *url,PlLong timeout,char *purpose,PlTerm reference,PlTerm status) {
+PlBool iso_net_start(char *url,PlLong timeout,char *purpose,char *owner,PlTerm reference,PlTerm status) {
   if(!initialize())return PL_FALSE;
   if(strlen(url)>URL_MAX)return Pl_Un_String("request_too_large",status);
   if(strcmp(purpose,"rpc") && strcmp(purpose,"source"))return Pl_Un_String("outbound_denied",status);
@@ -168,6 +177,11 @@ PlBool iso_net_start(char *url,PlLong timeout,char *purpose,PlTerm reference,PlT
   if(denied)return Pl_Un_String(denied,status);
   Request *r=NULL;for(int i=0;i<SLOTS;i++)if(!requests[i].id){r=&requests[i];break;}
   if(!r)return Pl_Un_String("promise_limit_exceeded",status);
+  if(*owner) {
+    if(strlen(owner)!=64)return Pl_Un_String("invalid_query_owner",status);
+    for(const char *p=owner;*p;p++)if(!((*p>='0'&&*p<='9')||(*p>='a'&&*p<='f')))return Pl_Un_String("invalid_query_owner",status);
+  }
+  snprintf(r->query_owner,sizeof r->query_owner,"%s",owner);
   r->url=strdup(url);if(!r->url)return Pl_Un_String("out_of_memory",status);
   /* References are opaque ten-digit integers scoped to this worker. */
   long candidate;
@@ -221,4 +235,18 @@ PlBool iso_net_escape(char *text,PlTerm escaped) {
   if(!initialize() || strlen(text)>URL_MAX)return PL_FALSE;
   char *s=curl_easy_escape(NULL,text,0);if(!s)return PL_FALSE;
   PlBool ok=Pl_Un_String(s,escaped);curl_free(s);return ok;
+}
+
+/* Capabilities come from OS entropy, never Prolog's predictable RNG. */
+PlBool iso_net_nonce(PlTerm value) {
+  unsigned char bytes[32];size_t used=0;
+  int fd=open("/dev/urandom",O_RDONLY|O_CLOEXEC);if(fd<0)return PL_FALSE;
+  while(used<sizeof bytes) {
+    ssize_t n=read(fd,bytes+used,sizeof bytes-used);
+    if(n<0&&errno==EINTR)continue;
+    if(n<=0){close(fd);return PL_FALSE;}used+=(size_t)n;
+  }
+  close(fd);char hex[65];const char *digits="0123456789abcdef";
+  for(size_t i=0;i<sizeof bytes;i++){hex[2*i]=digits[bytes[i]>>4];hex[2*i+1]=digits[bytes[i]&15];}
+  hex[64]=0;return Pl_Un_String(hex,value);
 }

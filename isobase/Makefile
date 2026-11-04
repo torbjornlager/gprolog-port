@@ -71,6 +71,7 @@ local-test: query-worker query-supervisor isobase-node
 	python3 http_tests.py
 	python3 total_memory_tests.py
 	python3 eviction_tests.py
+	python3 query_ownership_tests.py
 	python3 request_reader_tests.py
 	python3 request_line_tests.py
 	python3 parameter_encoding_tests.py

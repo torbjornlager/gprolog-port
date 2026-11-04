@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import select
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -198,7 +199,7 @@ static int iso_query_memory(pid_t pid,uint64_t *bytes){
         (root/'memory_tree.h').write_text(wrapper)
         shutil.copy2(ROOT/'http.c',root/'http.c')
         broken=root/'fault-node'
-        subprocess.run(['cc','-std=c11','-Wall','-Wextra','-Werror','-pthread','-I',str(ROOT),str(root/'http.c'),'-o',str(broken)],check=True)
+        subprocess.run([*shlex.split(os.environ.get('CC','cc')),'-std=c11','-Wall','-Wextra','-Werror','-pthread','-I',str(ROOT),str(root/'http.c'),'-o',str(broken)],check=True)
         node=Node(broken,total=128)
         try:
             with concurrent.futures.ThreadPoolExecutor() as pool:

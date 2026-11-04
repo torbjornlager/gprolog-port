@@ -162,3 +162,35 @@ reproduced the RPC failure against SWI; it is not introduced by these controls.
 Validation on 2026-09-30: `make test`, `make compiled-test`, and both controller
 ASan/UBSan security and lifecycle suites passed. The required boundary comparison
 remains GNU 39/39 and pinned SWI 5/39; SWI discrepancies remain open.
+
+## Query namespaces for a trusted presenter (2026-11-04)
+
+The authenticated listener accepts a 64-lowercase-hex
+`X-Web-Prolog-Query-Owner` capability and a separate
+`X-Web-Prolog-Query-Budget` group. These are controller-only namespaces; neither
+replaces bearer authentication nor grants permission to execute. Duplicate or
+malformed values fail before query admission. `--require-query-owner 1` and
+`--require-query-budget 1` make missing values fail closed for presenters.
+A trusted presenter must derive ownership from a validated client/session and
+budget groups from its trusted socket/proxy address, overwriting caller values.
+
+`--max-owner-queries N` and `--max-budget-queries N` bound active plus retained
+queries per namespace/group within the existing `--max-queries` ceiling. A new
+request can replace its own idle continuation but cannot consume or evict another
+owner's continuation, including during admission-memory reclamation. Global
+emergency memory shedding can still affect other clients; these are not separate
+OS tenants. Quotas default to the legacy global maximum for trusted local use.
+
+The bundled RPC client generates a fresh OS-random capability per conversation
+and carries it across pages, independently of inbound identity or credentials.
+This is compatible with peers that ignore unknown headers. Clients without an
+explicit namespace still share the authenticated owner's local trust domain;
+remote presenters should require namespaces and budget groups.
+
+`query_ownership_tests.py` checks two-owner paging, required/malformed identities,
+owner-only eviction, group identity churn, active quota fairness and recovery.
+The Linux memory sampler also recognizes procfs ESRCH/ENOENT when a previously
+opened process exits during read; other accounting failures still fail closed.
+The existing memory-pressure suite exercises that exit race and injected failure.
+These changes do not complete the network/hostile-workload release gates in
+THREAT_MODEL.md or authorize unauthenticated deployment.

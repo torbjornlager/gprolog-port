@@ -1,11 +1,12 @@
 % HTTP protocol and source composition stay in Prolog; C owns only transport.
-:- foreign(iso_net_start(+string,+integer,+string,term,term)).
+:- foreign(iso_net_start(+string,+integer,+string,+string,term,term)).
 :- foreign(iso_net_wait(+integer,+integer,term,term)).
 :- foreign(iso_net_peek(+integer,term,term)).
 :- foreign(iso_net_unmatched(+integer)).
 :- foreign(iso_net_cancel(+integer)).
 :- foreign(iso_net_escape(+string,term)).
 :- foreign(iso_net_node_uri(+string)).
+:- foreign(iso_net_nonce(term)).
 
 iso_rpc(Scope,URI,Goal,Options) :-
     iso_rpc_options(Options), iso_remote_goal(Goal),
@@ -76,17 +77,18 @@ iso_rpc_prepare(Scope,URI,Goal,Template,Options,Base,Limit,Once,HTTP) :-
     atom_concat(U,'/call?format=prolog',B0),
     iso_param(B0,goal,G,B1),iso_param(B1,template,T,B2),
     iso_param(B2,src_text,Source,B3),iso_param(B3,once,Once,B4),
-    (Timeout==none -> Base=B4
-    ;iso_param(B4,timeout,Timeout,Base)).
+    (Timeout==none -> URL=B4
+    ;iso_param(B4,timeout,Timeout,URL)),
+    (iso_net_nonce(Owner)->Base=owned(URL,Owner);throw(error(entropy_unavailable,rpc/3))).
 % Frame each term independently before URL encoding: peers may parse the
 % fields together to preserve shared variables. Keep the same Names for both.
 iso_rpc_wire_text(Term,Names,Text) :-
     iso_write_text(Term,[quoted(true),ignore_ops(false),variable_names(Names)],Raw),
     atom_concat('(',Raw,Prefix),atom_concat(Prefix,')',Text).
 
-iso_rpc_request(Base,Offset,Limit,HTTP,Reference) :-
+iso_rpc_request(owned(Base,Owner),Offset,Limit,HTTP,Reference) :-
     iso_param(Base,offset,Offset,B),iso_param(B,limit,Limit,URL),
-    iso_net_start(URL,HTTP,rpc,Reference,Status),
+    iso_net_start(URL,HTTP,rpc,Owner,Reference,Status),
     (Status==ok->true;throw(error(Status,promise/4))).
 iso_wire_names([],_,[]).
 iso_wire_names([V|Vs],I,[Name=V|Ns]) :- iso_number_atom(I,A),atom_concat('V',A,Name),
@@ -122,7 +124,7 @@ iso_source_parts(Scope,[O|Os],HT,Parts) :-
     (O=src_text(Text)->iso_text(Text,S),Parts=[S|Rest]
     ;O=src_list(Terms)->iso_list(Terms),iso_terms_source(Terms,S),Parts=[S|Rest]
     ;O=src_predicates(PIs)->iso_list(PIs),iso_export(Scope,PIs,Terms),iso_terms_source(Terms,S),Parts=[S|Rest]
-    ;O=src_uri(URI)->iso_source_uri(URI,U),iso_http_millis(HT,HTTP),iso_net_start(U,HTTP,source,R,Status),
+    ;O=src_uri(URI)->iso_source_uri(URI,U),iso_http_millis(HT,HTTP),iso_net_start(U,HTTP,source,'',R,Status),
         (Status==ok->true;throw(error(Status,rpc/3))),
         iso_net_wait(R,-1,S,Result),(Result==ok->true;throw(error(Result,rpc/3))),Parts=[S|Rest]
     ;Parts=Rest),iso_source_parts(Scope,Os,HT,Rest).

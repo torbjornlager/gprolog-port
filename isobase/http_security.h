@@ -37,8 +37,8 @@ static int field_character(unsigned char c) {
   return token_character(c)||strchr("!#$%&'*+.^`|~",c)!=NULL;
 }
 /* Mutates complete header lines. Return status and a non-sensitive reason. */
-static int check_headers(char *p,const char **reason) {
-  char *host=NULL,*auth=NULL,*origin=NULL,*site=NULL,*length=NULL;
+static int check_headers(char *p,const char **reason,const char **query_owner,const char **query_budget) {
+  char *host=NULL,*auth=NULL,*origin=NULL,*site=NULL,*length=NULL,*owner=NULL,*budget=NULL;
   *reason="invalid_headers";
   while(strcmp(p,"\r\n")) {
     char *end=strstr(p,"\r\n");if(!end)return 400;*end=0;
@@ -54,6 +54,8 @@ static int check_headers(char *p,const char **reason) {
     else if(!strcasecmp(p,"Origin"))slot=&origin;
     else if(!strcasecmp(p,"Sec-Fetch-Site"))slot=&site;
     else if(!strcasecmp(p,"Content-Length"))slot=&length;
+    else if(!strcasecmp(p,"X-Web-Prolog-Query-Owner"))slot=&owner;
+    else if(!strcasecmp(p,"X-Web-Prolog-Query-Budget"))slot=&budget;
     else if(!strcasecmp(p,"Transfer-Encoding"))return 400;
     if(slot){if(*slot)return 400;*slot=value;}
     p=end+2;
@@ -69,5 +71,12 @@ static int check_headers(char *p,const char **reason) {
   }
   if(site&&strcmp(site,"same-origin")&&strcmp(site,"none")){*reason="cross_site_request";return 403;}
   if(!authorized(auth)){*reason="authentication_required";return 401;}
-  return 0;
+  const char *scopes[]={owner,budget};
+  for(size_t i=0;i<2;i++)if(scopes[i]) {
+    if(strlen(scopes[i])!=64){*reason="invalid_query_identity";return 400;}
+    for(const char *q=scopes[i];*q;q++)if(!((*q>='0'&&*q<='9')||(*q>='a'&&*q<='f'))) {
+      *reason="invalid_query_identity";return 400;
+    }
+  }
+  *query_owner=owner;*query_budget=budget;return 0;
 }

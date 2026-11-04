@@ -29,18 +29,19 @@
 #define CONNECTION_IDLE_MS 10000
 #define HEADER_READ_MS 2000
 
-typedef struct { pid_t pid; int in,out,busy,terminated; long offset; long long expires; unsigned long long cached_order; uint64_t memory; const char *abort_reason; char *key; char source[PATH_MAX]; } Query;
-typedef struct { char *goal,*template,*source,*format; long offset,limit; int once,timeout; } Request;
+typedef struct { pid_t pid; int in,out,busy,terminated; long offset; long long expires; unsigned long long cached_order; uint64_t memory; const char *abort_reason; char *key; char owner[65],budget[65]; char source[PATH_MAX]; } Query;
+typedef struct { char *goal,*template,*source,*format; const char *owner,*budget; long offset,limit; int once,timeout; } Request;
 static Query queries[MAX_QUERIES];
 /* Updated under mutex whenever a continuation is inserted/reinserted. */
 static unsigned long long cache_order;
 static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t drained=PTHREAD_COND_INITIALIZER;
 static int clients[MAX_CLIENTS],client_count,max_queries=8,time_ms=1000,idle_ms=30000;
+static int max_owner_queries=MAX_QUERIES,max_budget_queries=MAX_QUERIES,require_query_owner,require_query_budget;
 static int memory_mb=ISO_DEFAULT_MEMORY_MB;
 static uint64_t total_memory=(uint64_t)ISO_DEFAULT_TOTAL_MEMORY_MB*1024*1024;
 static volatile sig_atomic_t stopping;
-static char supervisor[PATH_MAX],directory[PATH_MAX],shared_snapshot[PATH_MAX];
+static char supervisor[PATH_MAX],directory[64],shared_snapshot[PATH_MAX];
 static void stop(int sig) { (void)sig;stopping=1; }
 static long long now(void) { struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return (long long)t.tv_sec*1000+t.tv_nsec/1000000; }
 static void cloexec(int fd) { fcntl(fd,F_SETFD,FD_CLOEXEC); }
@@ -154,13 +155,18 @@ static const char *enforce_memory(void) {
     abort_query(victim,"total_memory_limit_exceeded");
   }
 }
-static const char *admit_memory(Query *resume) {
+static const char *admit_memory(Query *resume,const char *owner) {
   for(;;) {
     uint64_t actual,charged;
     if(!sample_memory(&actual,&charged))return "memory_monitor_failed";
     uint64_t reserve=resume?0:admission_reserve();
     if(charged<=total_memory && reserve<=total_memory-charged)return NULL;
-    Query *victim=oldest_idle(resume);
+    Query *victim=NULL;
+    for(int i=0;i<max_queries;i++) {
+      Query *q=&queries[i];
+      if(q->pid&&!q->busy&&q!=resume&&(!owner||!strcmp(q->owner,owner))&&
+         (!victim||q->cached_order<victim->cached_order))victim=q;
+    }
     if(!victim)return "total_memory_limit_exceeded";
     release(victim);
   }
@@ -291,7 +297,7 @@ static int start_query(Query *q,Request *r,char *key) {
   for(size_t i=0;i<count;i++)free(environment[i]);
   posix_spawn_file_actions_destroy(&a);free(term);
   if(status){q->pid=0;goto failed;}
-  close(in[0]);close(out[1]);q->in=in[1];q->out=out[0];q->key=key;q->busy=1;return 1;
+  close(in[0]);close(out[1]);q->in=in[1];q->out=out[0];q->key=key;snprintf(q->owner,sizeof q->owner,"%s",r->owner?r->owner:"");snprintf(q->budget,sizeof q->budget,"%s",r->budget?r->budget:"");q->busy=1;return 1;
 failed:
   close(in[0]);close(in[1]);close(out[0]);close(out[1]);if(*q->source)unlink(q->source);q->source[0]=0;return 0;
 }
@@ -299,7 +305,7 @@ static int validate_shared(void) {
   Request r={.goal="true",.template="ok",.source="",.format="prolog",.limit=1};
   Query *check=&queries[0];char *key=strdup("startup-validation");
   if(!key)return 0;
-  const char *reason=admit_memory(NULL);
+  const char *reason=admit_memory(NULL,NULL);
   if(reason){fprintf(stderr,"Shared database validation failed: %s\n",reason);free(key);return 0;}
   if(!start_query(check,&r,key)){free(key);return 0;}
   char result[2048];size_t used=0;long long end=now()+time_ms+1000;
@@ -362,8 +368,8 @@ static void call_request(int fd,Request *r) {
   for(int i=0;i<max_queries;i++)if(queries[i].pid&&!queries[i].busy&&queries[i].expires<=now())release(&queries[i]);
   const char *reason=enforce_memory();
   if(reason){pthread_mutex_unlock(&mutex);free(key);error_reply(fd,503,r->format,reason);return;}
-  for(int i=0;i<max_queries;i++)if(queries[i].pid&&!queries[i].busy&&queries[i].offset==r->offset&&!strcmp(queries[i].key,key)){q=&queries[i];break;}
-  reason=admit_memory(q);
+  for(int i=0;i<max_queries;i++)if(queries[i].pid&&!queries[i].busy&&queries[i].offset==r->offset&&!strcmp(queries[i].key,key)&&!strcmp(queries[i].owner,r->owner?r->owner:"")){q=&queries[i];break;}
+  reason=admit_memory(q,r->owner);
   if(reason){pthread_mutex_unlock(&mutex);free(key);error_reply(fd,503,r->format,reason);return;}
   if(q) { free(key);
     /* The demonstrator treats zero on a resumed page as its default limit. */
@@ -371,12 +377,19 @@ static void call_request(int fd,Request *r) {
     q->busy=1;char next[40];int len=snprintf(next,sizeof next,"next %ld\n",r->limit);
     if(!write_all(q->in,next,(size_t)len)){release(q);q=NULL;}
   } else {
-    for(int i=0;i<max_queries;i++)if(!queries[i].pid){q=&queries[i];break;}
+    int owned=0,charged=0;
+    for(int i=0;i<max_queries;i++)if(queries[i].pid) {
+      if(!strcmp(queries[i].owner,r->owner?r->owner:""))owned++;
+      if(!strcmp(queries[i].budget,r->budget?r->budget:""))charged++;
+    }
+    if(owned<max_owner_queries&&charged<max_budget_queries)
+      for(int i=0;i<max_queries;i++)if(!queries[i].pid){q=&queries[i];break;}
     if(!q) {
       /* Like SWI's insertion-order cache eviction, but never stop an active
        * request. Resuming and recaching a continuation makes it newest. */
       for(int i=0;i<max_queries;i++)
-        if(!queries[i].busy && (!q || queries[i].cached_order<q->cached_order))q=&queries[i];
+        if(queries[i].pid&&!queries[i].busy&&(!r->owner||!strcmp(queries[i].owner,r->owner))&&
+           (!q||queries[i].cached_order<q->cached_order))q=&queries[i];
       if(q)release(q);
     }
     if(!q){pthread_mutex_unlock(&mutex);free(key);error_reply(fd,503,r->format,"query_limit_exceeded");return;}
@@ -452,9 +465,9 @@ static void *client(void *arg) {
     for(char *p=b;p<end;p++)
       if((unsigned char)*p<32||(unsigned char)*p==127){invalid_line=1;break;}
     const char *reason="invalid_headers";
-    int denied;
+    int denied;const char *query_owner=NULL,*query_budget=NULL;
     if(invalid_line){denied=400;reason="invalid_request";}
-    else denied=(header_end+4!=b+used)?400:check_headers(end+2,&reason);
+    else denied=(header_end+4!=b+used)?400:check_headers(end+2,&reason,&query_owner,&query_budget);
     *end=0;char *space=strchr(b,' '),*last=space?strchr(space+1,' '):NULL;
     if(denied){error_reply(fd,denied,"json",reason);finish_rejected_request(fd);}
     else if(!space||!last)error_reply(fd,400,"json","invalid_request");
@@ -468,7 +481,9 @@ static void *client(void *arg) {
       else {char *params=strchr(space,'?');if(params)*params++=0;
         if(strcmp(space,"/call"))error_reply(fd,404,"json","not_found");
         else if(!params)error_reply(fd,400,"json","goal_required");
-        else {Request r;if(parameters(params,&r))call_request(fd,&r);else error_reply(fd,400,"json","invalid_parameters");free_request(&r);}
+        else if(require_query_owner&&!query_owner)error_reply(fd,400,"json","query_owner_required");
+        else if(require_query_budget&&!query_budget)error_reply(fd,400,"json","query_budget_required");
+        else {Request r;if(parameters(params,&r)){r.owner=query_owner;r.budget=query_budget;call_request(fd,&r);}else error_reply(fd,400,"json","invalid_parameters");free_request(&r);}
       }
     }
   }
@@ -487,6 +502,10 @@ int main(int argc,char **argv) {
     if(!integer(argv[i+1],0,3600000,&n))return 2;
     if(!strcmp(argv[i],"--port")&&n<=65535)port=n;
     else if(!strcmp(argv[i],"--max-queries")&&n>=1&&n<=MAX_QUERIES)max_queries=(int)n;
+    else if(!strcmp(argv[i],"--max-owner-queries")&&n>=1&&n<=MAX_QUERIES)max_owner_queries=(int)n;
+    else if(!strcmp(argv[i],"--max-budget-queries")&&n>=1&&n<=MAX_QUERIES)max_budget_queries=(int)n;
+    else if(!strcmp(argv[i],"--require-query-budget")&&n<=1)require_query_budget=(int)n;
+    else if(!strcmp(argv[i],"--require-query-owner")&&n<=1)require_query_owner=(int)n;
     else if(!strcmp(argv[i],"--time-ms")&&n>=1)time_ms=(int)n;
     else if(!strcmp(argv[i],"--memory-mb")&&n>=1&&n<=ISO_MAX_MEMORY_MB)memory_mb=(int)n;
     else if(!strcmp(argv[i],"--total-memory-mb")&&n>=1&&n<=ISO_MAX_MEMORY_MB)total_memory=(uint64_t)n*1024*1024;

@@ -657,3 +657,11 @@ binding them; other representation errors precede fetching or dispatch. Existing
 HTTP(S) syntax, origin/address permissions and source/request limits remain
 unchanged. `uri_option_tests.py --worker PATH` checks an isolated worker; no
 installed binary needs to be replaced to run the regression.
+
+### Presenter query ownership
+
+A trusted presenter can require separate query owner and budget namespaces with
+`--require-query-owner 1 --require-query-budget 1`, and set
+`--max-owner-queries` / `--max-budget-queries` below the global query ceiling.
+The bearer credential remains mandatory. See SECURITY.md for the header contract,
+quota/eviction behavior and the unchanged trusted-owner deployment scope.

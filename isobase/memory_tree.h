@@ -17,8 +17,11 @@ static int iso_owned_process(pid_t pid,pid_t parent) {
   return info.pbi_ppid==(uint32_t)parent && info.pbi_status!=SZOMB;
 #elif defined(__linux__)
   char path[64],line[4096];snprintf(path,sizeof path,"/proc/%ld/stat",(long)pid);
-  FILE *f=fopen(path,"r");if(!f)return errno==ENOENT?0:-1;
-  int ok=fgets(line,sizeof line,f)!=NULL;fclose(f);
+  FILE *f=fopen(path,"r");if(!f)return errno==ENOENT||errno==ESRCH?0:-1;
+  errno=0;int ok=fgets(line,sizeof line,f)!=NULL,read_error=errno;fclose(f);
+  /* procfs can open successfully and then report ESRCH when the task exits
+   * before read. This is an observed exit, not missing live accounting. */
+  if(!ok&&(read_error==ESRCH||read_error==ENOENT))return 0;
   char *end=ok?strrchr(line,')'):NULL,state;long owner;
   if(!end||sscanf(end+1," %c %ld",&state,&owner)!=2)return -1;
   return owner==(long)parent && state!='Z' && state!='X';
