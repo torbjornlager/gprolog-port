@@ -219,7 +219,7 @@ promise('http://127.0.0.1:8081', member(X,[a,b,c]), R,
 yield(R, Message)
 ```
 
-URI arguments accept HTTP(S) atoms or `Host:Port`. Options include `limit`,
+URI arguments require HTTP(S) atoms. Options include `limit`,
 `once`, remote `timeout`, transport `http_timeout`, and source options
 `src_text`, `src_list`, `src_predicates` and HTTP(S) `src_uri`. Sources are
 combined in option order. `src_predicates` exports only explicitly listed
@@ -271,8 +271,9 @@ Current transport limits/differences:
   the response byte bound and execution deadline remain authoritative. Use
   a smaller explicit limit for incremental answers. RPC walks pages unless
   cut or `once(true)` is requested.
-- HTTP timeout defaults to 30 seconds, with explicit timeouts bounded to
-  0–300 seconds (zero transport timeout becomes 1 ms). The owning supervisor's
+- HTTP timeout defaults to 30 seconds. Explicit values require
+  numeric seconds, normalized to zero when negative. Zero transport timeout
+  starts no HTTP transfer; explicit values above 300 seconds are accepted. The owning supervisor's
   cumulative execution budget still applies, including network waits.
 - Only explicitly approved HTTP(S) destinations are supported; redirects are denied. Owner-scoped
   HTTPS bearer credentials are supported; caller-supplied authentication options,
@@ -560,8 +561,8 @@ exception guards and remaining host differences.
 
 Peer certificates and hostnames are verified. Node owners may set `ISO_CA_FILE`
 to an absolute CA-bundle path before starting the node; callers cannot change
-trust through query options. `http_timeout` applies to each `src_uri` download
-as well as RPC transport. Certificate, CA-file and handshake failures have
+trust through query options. Source downloads use their own 30-second default;
+`http_timeout` applies to execution-node requests, independently of each `src_uri` download. Certificate, CA-file and handshake failures have
 distinct catchable GNU diagnostics. See [RPC_BOUNDARY.md](RPC_BOUNDARY.md) for
 the 17 local HTTPS checks and precise deadline/trust limitations.
 
@@ -622,7 +623,8 @@ The eighth audit adds 61 source/RPC option cases, bringing the corpus to 1219
 cases with 25 explicit host boundaries. GNU omits an unbound remote timeout
 without binding it and matches sampled once-option behavior. Source composition
 preserves option order; the corresponding SWI accumulator bug was fixed in source
-and tested on disposable nodes. GNU's stricter negative-timeout policy remains.
+and tested on disposable nodes. Those timeout observations are historical; the common numeric contract below
+now applies.
 
 
 The ninth audit adds 58 RPC URI and validation-order cases, bringing the corpus
@@ -653,13 +655,12 @@ checks an isolated worker without replacing the installed runtime.
 
 ### Canonical URI inputs
 
-RPC/promise and source URI helpers normalise atom, character-list and code-list
-text to atoms. `Host:Port` remains accepted, with instantiated text host and
-integer port components. Pending components raise instantiation errors without
-binding them; other representation errors precede fetching or dispatch. Existing
-HTTP(S) syntax, origin/address permissions and source/request limits remain
-unchanged. `uri_option_tests.py --worker PATH` checks an isolated worker; no
-installed binary needs to be replaced to run the regression.
+RPC/promise destinations and source URI arguments require atoms. A pending
+value raises `instantiation_error` without binding it; a non-atom raises
+`type_error(atom, Value)` before source fetching or request dispatch.
+`Host:Port` is not a URI value. HTTP(S) syntax, origin/address permissions and
+source/request limits retain their existing checks. `uri_option_tests.py
+--worker PATH` checks an isolated worker; no installed binary needs replacement.
 
 ### Presenter query ownership
 
@@ -668,3 +669,35 @@ A trusted presenter can require separate query owner and budget namespaces with
 `--max-owner-queries` / `--max-budget-queries` below the global query ceiling.
 The bearer credential remains mandatory. See SECURITY.md for the header contract,
 quota/eviction behavior and the unchanged trusted-owner deployment scope.
+
+## Common RPC timeout contract (2026-11-04)
+
+Execution `timeout/1` and transport `http_timeout/1` require numbers. Every
+occurrence is validated before source work; the first occurrence sets each
+independent limit. Negatives normalize to zero; omission keeps the default.
+The destination applies its owner's execution cap. Each HTTP page gets a fresh
+whole-request deadline, independent of source downloads. HTTP expiry raises
+`error(rpc_error(http_timeout),_)` in RPC; promises yield
+`error(error(rpc_error(http_timeout),_))`. Execution deadline exhaustion at this
+node returns `error(resource_error(time),_)`, without conflating worker failures.
+Earlier comparison and 0.2 contract records describe historical behavior; they
+have not been rewritten as current conformance results.
+
+### Common RPC HTTP fields
+
+HTTP fields use `request_header(Name=Value)`, `authorization(basic(User,Password))`,
+`authorization(bearer(Token))`, and `user_agent(Agent)`. Names are ASCII HTTP tokens;
+values and credential arguments accept atoms, strings and character-list strings.
+Every occurrence is validated before source work; the first field with a given
+case-insensitive name wins across all option forms. Field values use UTF-8 bytes. Basic credentials use UTF-8
+then Base64. RPC fields apply to every page and never to source downloads.
+Reserved proxy identity fields are rejected. Caller access policy still applies.
+
+An explicit Authorization field on a peer with operator-bound credentials is
+rejected with `outbound_credential_conflict`; the caller cannot replace or read
+those credentials. The pinned destination Host field cannot be overridden.
+A retained opaque query-owner header replaces the generated
+owner field. Broker transport carries nonempty fields in an optional `headers`
+form field; deploy a matching `Deployment/n6_egress.py` broker before enabling
+custom fields in contained workers. Four-field requests remain compatible;
+an older broker rejects the new field instead of silently discarding it.

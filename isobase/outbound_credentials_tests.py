@@ -45,6 +45,8 @@ class Bridge:
 
 def main():
     swi,trinity=record_run('outbound-credentials');checks=0;processes=[];bridges=[]
+    node_source=Path(os.environ.get('SWI_NODE_FILE',trinity/'load.pl')).resolve()
+    rpc_source=Path(os.environ['SWI_RPC_FILE']).resolve() if os.environ.get('SWI_RPC_FILE') else native_source(trinity,'rpc.pl')
     with tempfile.TemporaryDirectory(prefix='outbound-credentials-') as tmp, tempfile.TemporaryFile(mode='w+') as log:
         root=Path(tmp);token=root/'gnu.token';token.write_text(TOKEN);token.chmod(0o600)
         swi_token=root/'swi.token';swi_token.touch(mode=0o600)
@@ -58,7 +60,7 @@ def main():
             assert select.select([node.stdout],[],[],5)[0];gp=json.loads(node.stdout.readline())['port']
             with socket.socket() as sock:sock.bind(('127.0.0.1',0));sp=sock.getsockname()[1]
             goal=f"node:node({sp},[profile(isobase),auth(private),ip('127.0.0.1')]),node_tokens:issue_token(owner,[execute],[],T),setup_call_cleanup(open('{swi_token}',write,S),format(S,'~s',[T]),close(S)),writeln(ready),flush_output,thread_get_message(stop)"
-            peer=subprocess.Popen([swi,'-q','-s',str(trinity/'load.pl'),'-g',goal],stdout=subprocess.PIPE,stderr=log,text=True);processes.append(peer)
+            peer=subprocess.Popen([swi,'-q','-s',str(node_source),'-g',goal],stdout=subprocess.PIPE,stderr=log,text=True);processes.append(peer)
             assert select.select([peer.stdout],[],[],15)[0] and peer.stdout.readline().strip()=='ready'
             gnu=Bridge(gp,TOKEN,cert,key);bridges.append(gnu)
             sw=Bridge(sp,swi_token.read_text(),cert,key);bridges.append(sw)
@@ -110,7 +112,10 @@ def main():
             run(f"rpc('{gnu.uri}',p(ok),[src_uri('{gnu.uri}/source')])")
             assert gnu.server.observations[-2][0:2]==('/source',False) and gnu.server.observations[-1][2]
             # Submitted code cannot forward or replace a credential using HTTP options.
-            run(f"rpc('{gnu.uri}',true,[request_header(authorization=stolen)])",'domain_error(rpc_option,request_header(authorization=stolen))')
+            before=len(gnu.server.observations)
+            run(f"rpc('{gnu.uri}',true,[request_header(authorization=stolen)])",'outbound_credential_conflict')
+            run(f"promise('{gnu.uri}',true,R,[authorization(bearer(caller))])",'outbound_credential_conflict')
+            assert len(gnu.server.observations)==before
             for location in [unrelated.uri+'/call',gnu.uri+'/other',f'http://127.0.0.1:{gp}/call']:
                 gnu.server.redirect=location;before=len(unrelated.server.observations)
                 run(f"rpc('{gnu.uri}',true)",'http_redirect_denied')
@@ -137,7 +142,7 @@ def main():
             assert len(gnu.server.observations)==before
             # A pinned SWI client reads the token privately, verifies our CA, then calls GNU.
             script=root/'caller.pl'
-            script.write_text(f""":- use_module('{native_source(trinity,'rpc.pl')}').
+            script.write_text(f""":- use_module('{rpc_source}').
 :- use_module(library(readutil)).
 % Trust only the disposable bridge through the owner HTTP-client hook.
 % cacert_file/1 is not a public SWI rpc option.
@@ -154,7 +159,8 @@ main :- read_file_to_string('{token}',T,[]),atomics_to_string(['Bearer ',T],H),
             checks+=1
             log.seek(0);diagnostics=log.read()
             assert TOKEN not in diagnostics and INBOUND not in diagnostics and swi_token.read_text() not in diagnostics,'credential in backend diagnostics'
-            evidence={'passed':checks,'failed':0,'directions':['GNU to GNU','GNU to SWI','SWI to GNU'],
+            evidence={'selected_native_node':{'path':str(node_source),'sha256':digest(node_source)},
+                      'selected_native_rpc':{'path':str(rpc_source),'sha256':digest(rpc_source)},'passed':checks,'failed':0,'directions':['GNU to GNU','GNU to SWI','SWI to GNU'],
                       'transport':'verified TLS bridges to protected loopback backends',
                       'worker_sha256':digest(os.environ.get('ISO_WORKER','./query-worker')),
                       'node_sha256':digest(os.environ.get('ISO_NODE','./isobase-node'))}

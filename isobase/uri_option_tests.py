@@ -1,4 +1,4 @@
-"""Canonical URI text inputs and checked Host:Port; isolated worker supported."""
+"""URI atom boundaries and early rejection before source fetching."""
 import argparse
 import http.server
 import json
@@ -31,7 +31,7 @@ def run(worker):
         assert p.returncode==0 and actual==[{'type':'success','answers':['ok'],'more':False}],(goal,p.returncode,actual,p.stderr)
         count+=1
     try:
-        for value,error in [('42','type_error(text,42)'),('1.5','type_error(text,1.5)'),('foo(bar)','type_error(text,foo(bar))'),('localhost:bad','type_error(integer,bad)'),('localhost:P','instantiation_error'),('U','instantiation_error')]:
+        for value,error in [('42','type_error(atom,42)'),('1.5','type_error(atom,1.5)'),('foo(bar)','type_error(atom,foo(bar))'),('localhost:bad','type_error(atom,localhost:bad)'),('localhost:P','type_error(atom,localhost:P)'),('U','instantiation_error')]:
             for kind in ['rpc','promise']:
                 options=f"[src_uri('{uri}/source')]"
                 goal=f'rpc({value},true,{options})' if kind=='rpc' else f'promise({value},true,_,{options})'
@@ -40,10 +40,15 @@ def run(worker):
                 assert len(server.requests)==before
         chars='['+','.join(repr(c) for c in uri)+']'
         codes='['+','.join(str(ord(c)) for c in uri)+']'
-        for value in [repr(uri),json.dumps(uri),chars,codes,f"'127.0.0.1':{server.server_port}"]:
+        for value in [json.dumps(uri),chars,codes,f"'127.0.0.1':{server.server_port}"]:
+            for goal in [f'rpc({value},true)',f'promise({value},true,_)',f"rpc('{uri}',true,[src_uri({value})])"]:
+                before=len(server.requests)
+                expect(f'catch(({goal},fail),error(type_error(atom,_),_),true)')
+                assert len(server.requests)==before
+        for value in [repr(uri)]:
             expect(f'rpc({value},X=ok),X==ok')
             expect(f'promise({value},Y=ok,R,[template(pair(Y,Y))]),yield(R,A),A==success([pair(ok,ok)],false),var(Y)')
-        print(f'PASS {count} URI type, zero-request, text-form, Host:Port and sharing assertions')
+        print(f'PASS {count} URI atom, zero-request, rejected-representation and sharing assertions')
     finally:
         server.shutdown();server.server_close();thread.join(timeout=2)
 if __name__=='__main__':

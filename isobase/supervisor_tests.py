@@ -69,11 +69,11 @@ try:
 
     q=start('repeat,fail',options=['--time-ms','150'])
     q.remember_worker()
-    assert q.event()['term']=='time_limit_exceeded';q.ended()
+    assert q.event()['term']=='error(resource_error(time),query_supervisor)';q.ended()
 
     # Lookahead has already written part of a page inside the worker.
     q=start('X=first;repeat,fail',options=['--time-ms','150'])
-    assert q.event()=={'type':'error','term':'time_limit_exceeded'};q.ended()
+    assert q.event()=={'type':'error','term':'error(resource_error(time),query_supervisor)'};q.ended()
 
     q=start('between(1,5,X)',limit=1,options=['--idle-ms','150'])
     assert q.event()['more'];q.remember_worker()
@@ -145,7 +145,7 @@ try:
         q=start('true',executable=str(exe),options=['--time-ms','1000'])
         first=q.event();assert first.get('answers')==['1'],first
         q.send(b'next\n')
-        assert q.event()['term']=='time_limit_exceeded';q.ended()
+        assert q.event()['term']=='error(resource_error(time),query_supervisor)';q.ended()
     print('PASS supervisor: paging, deadlines, cancellation, EOF, output/heap bounds, worker death, signals and isolation')
 finally:
     for q in queries:

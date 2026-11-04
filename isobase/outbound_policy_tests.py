@@ -54,6 +54,9 @@ def main():
                         f"rpc('{allowed.uri}',true,[src_uri('{uri}/source')])"]
             write(rule())
             for goal in operations(allowed.uri):run(goal)
+            before=len(allowed.server.requests)
+            error(f"rpc('{allowed.uri}',true,[request_header('Host'='unapproved.example')])")
+            assert len(allowed.server.requests)==before
             # Approved names are pinned even when they cannot resolve in DNS.
             write(rule()+rule('peer.invalid'))
             run(f"rpc('http://peer.invalid:{allowed.port}',true)")

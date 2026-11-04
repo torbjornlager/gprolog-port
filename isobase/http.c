@@ -452,9 +452,9 @@ static void call_request(int fd,Request *r) {
   }
   pthread_mutex_unlock(&mutex);
   if(!q){error_reply(fd,503,r->format,"worker_start_failed");return;}
-  char *line=malloc(RESPONSE_CAP+4);size_t used=0;int complete=0,abandoned=0;long long end=now()+r->timeout;
+  char *line=malloc(RESPONSE_CAP+4);size_t used=0;int complete=0,abandoned=0,timed_out=0;long long end=now()+r->timeout;
   while(line && !complete && !stopping) {
-    long long left=end-now();if(left<=0)break;
+    long long left=end-now();if(left<=0){timed_out=1;break;}
     struct pollfd p[2]={{q->out,POLLIN,0},{fd,POLLIN,0}};
     if(poll(p,2,left>100?100:(int)left)<0){if(errno==EINTR)continue;break;}
     if(p[1].revents) { char c;ssize_t k=recv(fd,&c,1,MSG_PEEK|MSG_DONTWAIT);
@@ -472,7 +472,7 @@ static void call_request(int fd,Request *r) {
   if(!reason&&body&&more&&!abandoned&&!stopping){q->busy=0;q->offset=r->offset+r->limit;q->expires=now()+idle_ms;q->cached_order=++cache_order;}
   else release(q);
   pthread_mutex_unlock(&mutex);
-  if(!abandoned){if(reason)error_reply(fd,200,r->format,reason);else if(body)reply(fd,200,r->format,body);else error_reply(fd,200,r->format,"timeout_or_worker_failure");}
+  if(!abandoned){if(reason)error_reply(fd,200,r->format,reason);else if(body)reply(fd,200,r->format,body);else error_reply(fd,200,r->format,timed_out?"error(resource_error(time),http_call)":"timeout_or_worker_failure");}
   free(body);free(line);
 }
 static void *client(void *arg) {

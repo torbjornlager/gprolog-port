@@ -177,7 +177,7 @@ int main(int argc,char **argv) {
     const char *memory_error=child>0?memory_status():NULL;
     if(memory_error){reap();event(memory_error);break;}
     long long left=active ? remaining-(now_ms()-started) : idle_limit-(now_ms()-idle_started);
-    if (left<=0) { event(active?"time_limit_exceeded":"continuation_expired");break; }
+    if (left<=0) { event(active?"error(resource_error(time),query_supervisor)":"continuation_expired");break; }
     struct pollfd p[3]={{answers[0],POLLIN,0},{STDIN_FILENO,POLLIN,0},
                        {diagnostic_open?diagnostics[0]:-1,POLLIN,0}};
     int rc=poll(p,3,left>ISO_MEMORY_POLL_MS?ISO_MEMORY_POLL_MS:(int)left);
@@ -196,7 +196,7 @@ int main(int argc,char **argv) {
           memory_error=child>0?memory_status():NULL;
           if(memory_error){reap();event(memory_error);done=1;break;}
           remaining-=now_ms()-started;
-          if (remaining<=0) { event("time_limit_exceeded");done=1;break; }
+          if (remaining<=0) { event("error(resource_error(time),query_supervisor)");done=1;break; }
           frame[used++]='\n';
           if (!emit(frame,used)) { done=1;break; }
           used=0;active=0;idle_started=now_ms();

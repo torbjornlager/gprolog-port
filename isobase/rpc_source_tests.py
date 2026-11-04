@@ -45,7 +45,7 @@ def main():
     fixture=SourceServer();checks=0
     try:
         u=fixture.uri
-        for path,kind in [('missing','http_status_error'),('slow','http_timeout'),
+        for path,kind in [('missing','http_status_error'),
                           ('large','response_too_large_or_invalid'),('nul','response_too_large_or_invalid')]:
             deadline=0.02 if path=='slow' else 2
             fixture.server.paths.clear()
@@ -56,12 +56,16 @@ def main():
             # All failures happen within one worker, exceeding its 16 transport slots.
             run(f"findall(N,(between(1,24,N),catch(rpc('{u}',true,[src_uri('{u}/{path}'),http_timeout({deadline})]),error({kind},_),Caught=yes),Caught==yes),Ns),length(Ns,24),rpc('{u}',true)")
             checks+=1
+        fixture.server.paths.clear()
+        run(f"rpc('{u}',true,[src_uri('{u}/a'),src_uri('{u}/slow'),src_uri('{u}/b'),http_timeout(0.02)])")
+        assert fixture.server.paths[:3]==['/a','/slow','/b'] and fixture.server.paths[3].startswith('/call?'),fixture.server.paths
+        checks+=1
         # Remote-timeout validation must precede source I/O; transport-timeout
         # validation must occur before the first download using that deadline.
         for options,kind in [
             (f"timeout(bad),src_uri('{u}/a')",'type_error(number,bad)'),
             (f"src_uri('{u}/a'),http_timeout(none)",'type_error(number,none)'),
-            (f"src_uri('{u}/a'),http_timeout(301)",'domain_error(timeout,301)'),
+            (f"src_uri('{u}/a'),http_timeout(infinite)",'type_error(number,infinite)'),
         ]:
             fixture.server.paths.clear()
             run(f"catch(rpc('{u}',true,[{options}]),error({kind},_),Caught=yes),Caught==yes")

@@ -100,7 +100,7 @@ with tempfile.TemporaryFile(mode='w+') as log:
             expect(f"rpc('{uri}',from_uri(X),[src_uri('{fake}/source')])",['remote'])
             expect(f"rpc('{uri}',q(X),[src_text('q(a).'),src_list([q(b)])])",['a','b'])
             expect(f"rpc('{uri}',q(X),[src_list([q(a)]),src_text('q(b).'),src_list([q(c)])])",['a','b','c'])
-            expect(f"rpc('{uri}',true,[timeout(T)]),var(T),X=ok",['ok'])
+            error(f"rpc('{uri}',true,[timeout(T)])",'instantiation_error')
             # Language Boolean options require an instantiated atom.
             error(f"rpc('{uri}',true,[once(O)])",'instantiation_error')
             assert worker(f"rpc('{uri}',fail)")==[{'type':'failure'}]
@@ -201,7 +201,7 @@ with tempfile.TemporaryFile(mode='w+') as log:
         # yield/2 keeps waiting on a nonmatching message; supervisor cancels it.
         q=subprocess.Popen(['./query-supervisor',f"query((promise('{fake}',true,R),yield(R,wrong)),ok)",'1','--time-ms','400'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         message=json.loads(q.stdout.readline());q.wait(timeout=3)
-        assert message=={'type':'error','term':'time_limit_exceeded'},message
+        assert message=={'type':'error','term':'error(resource_error(time),query_supervisor)'},message
         # IO overlaps: both requests have time to finish during the first wait.
         expect(f"promise('{fake}/slow',true,A),promise('{fake}/slow',true,B),yield(A,_),yield(B,success([X],false),[timeout(0.1),on_timeout(fail)])",['ready'])
         expect(f"promise('{fake}',true,R),integer(R),R>=1000000000,R=<9999999999,yield(R,success([X],false))",['ready'])

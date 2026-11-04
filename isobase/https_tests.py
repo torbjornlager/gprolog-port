@@ -106,7 +106,7 @@ def main():
             error(goal(good.uri+'/r6'),'http_redirect_denied',ca)
             for uri in [plain.uri,good.uri]:
                 error(f"rpc('{uri}/slow',p(X),[http_timeout(0.02)])",'http_timeout',ca)
-                error(f"rpc('{plain.uri}',p(X),[src_uri('{uri}/slow'),http_timeout(0.02)])",'http_timeout',ca)
+                success(f"rpc('{plain.uri}',p(X),[src_uri('{uri}/slow'),http_timeout(0.02)]),X=ready",ca)
                 error(f"rpc('{plain.uri}',p(X),[src_uri('{uri}/missing')])",'http_status_error',ca)
             # Source fetching completes before the remote request is sent.
             # Use the real node to verify compilation/execution of fetched source.

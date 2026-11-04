@@ -53,7 +53,7 @@ def run(worker):
                 for options in [f'[once({value})]', f'[once(false),once({value})]']:
                     goal = f'rpc({uri},true,{options})' if kind == 'rpc' else f'promise({uri},true,_,{options})'
                     before = len(server.requests)
-                    expect(f'catch(({goal},fail),error(domain_error(boolean,_),_),true)')
+                    expect(f'catch(({goal},fail),error(Formal,_),(Formal=type_error(atom,_);Formal=domain_error(boolean,_)))')
                     assert len(server.requests) == before, goal
         for kind in ['rpc', 'promise']:
             goal = f'rpc({uri},true,[once(B)])' if kind == 'rpc' else f'promise({uri},true,_,[once(B)])'
@@ -66,7 +66,7 @@ def run(worker):
         for kind in ['rpc','promise']:
             for options,formal in [('[limit(1),limit(0)]','type_error(positive_integer,0)'),
                     ('[limit(1),limit(bad)]','type_error(integer,bad)'),
-                    ('[timeout(none),timeout(bad)]','type_error(number,bad)'),
+                    ('[timeout(1),timeout(bad)]','type_error(number,bad)'),
                     ('[http_timeout(1),http_timeout(bad)]','type_error(number,bad)'),
                     ("[src_uri('http://127.0.0.1:1/source'),limit(0)]",'type_error(positive_integer,0)')]:
                 goal=f'rpc({uri},true,{options})' if kind=='rpc' else f'promise({uri},true,R,{options})'

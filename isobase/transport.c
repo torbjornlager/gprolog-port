@@ -6,6 +6,7 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
@@ -29,7 +30,7 @@ typedef struct {
   pthread_cond_t ready;
   atomic_int cancel;
   int done, oversized;
-  char *url, *body;
+  char *url, *body, *header_text;
   char query_owner[65],purpose[8];
   int broker;
   size_t size;
@@ -95,8 +96,54 @@ static size_t receive_body(char *p,size_t n,size_t m,void *ctx) {
 static int progress(void *ctx,curl_off_t a,curl_off_t b,curl_off_t c,curl_off_t d) {
   (void)a;(void)b;(void)c;(void)d;return atomic_load(&((Request *)ctx)->cancel);
 }
+/* Validate the private framing as well as the language-level schema. */
+static int header_name_char(unsigned char c) {
+  return (c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||strchr("!#$%&'*+-.^_`|~",c)!=NULL;
+}
+static int has_header(const char *text,const char *name) {
+  size_t n=strlen(name);
+  for(const char *p=text;*p;) {
+    const char *end=strchr(p,'\n');if(!end)return 0;
+    if((size_t)(end-p)>n && p[n]==':' && !strncasecmp(p,name,n))return 1;
+    p=end+1;
+  }
+  return 0;
+}
+static const char *check_headers(const char *text,char explicit_owner[65]) {
+  if(strlen(text)>16384)return "request_too_large";
+  for(const char *p=text;*p;) {
+    const char *end=strchr(p,'\n'),*colon=strchr(p,':');
+    if(!end||!colon||colon==p||colon>end||colon+1>=end||colon[1]!=' ')return "invalid_request_headers";
+    for(const char *q=p;q<colon;q++)if(!header_name_char((unsigned char)*q))return "invalid_request_headers";
+    for(const char *q=colon+2;q<end;q++)if(((unsigned char)*q<32&&*q!='\t')||*q==127)return "invalid_request_headers";
+    if((size_t)(colon-p)==24&&!strncasecmp(p,"x-web-prolog-query-owner",24)) {
+      const char *value=colon+2;if(end-value!=64)return "invalid_query_owner";
+      for(int i=0;i<64;i++)if(!((value[i]>='0'&&value[i]<='9')||(value[i]>='a'&&value[i]<='f')))return "invalid_query_owner";
+      memcpy(explicit_owner,value,64);explicit_owner[64]=0;
+    }
+    p=end+1;
+  }
+  return NULL;
+}
+static int append_request_headers(struct curl_slist **headers,const char *text) {
+  for(const char *p=text;*p;) {
+    const char *end=strchr(p,'\n');size_t n=(size_t)(end-p);
+    char *line=strndup(p,n);if(!line)return 0;
+    char *colon=strchr(line,':');
+    if(colon && !colon[2]){*colon=';';colon[1]=0;} /* curl's explicit empty field syntax */
+    struct curl_slist *next=curl_slist_append(*headers,line);free(line);
+    if(!next)return 0;
+    *headers=next;p=end+1;
+  }
+  return 1;
+}
 static void *run_request(void *ctx) {
-  Request *r=ctx;if(r->broker)return run_broker_request(r);
+  Request *r=ctx;
+  if(r->timeout==0) {
+    pthread_mutex_lock(&r->mutex);r->error="http_timeout";r->done=1;
+    pthread_cond_signal(&r->ready);pthread_mutex_unlock(&r->mutex);return NULL;
+  }
+  if(r->broker)return run_broker_request(r);
   CURL *curl=curl_easy_init();
   const char *error=NULL;
   char authorization[280]={0};struct curl_slist *headers=NULL;
@@ -105,7 +152,8 @@ static void *run_request(void *ctx) {
     else if(!(headers=curl_slist_append(NULL,authorization)))error="out_of_memory";
     outbound_wipe(authorization,sizeof authorization);
   }
-  if(!error&&r->query_owner[0]) {
+  if(!error&&!append_request_headers(&headers,r->header_text))error="out_of_memory";
+  if(!error&&r->query_owner[0]&&!has_header(r->header_text,"x-web-prolog-query-owner")) {
     char owner_header[96];snprintf(owner_header,sizeof owner_header,"X-Web-Prolog-Query-Owner: %s",r->query_owner);
     struct curl_slist *next=curl_slist_append(headers,owner_header);
     if(next)headers=next;else error="out_of_memory";
@@ -174,16 +222,23 @@ static Request *lookup(long id) {
 static void release(Request *r) {
   atomic_store(&r->cancel,1);pthread_join(r->thread,NULL);
   pthread_cond_destroy(&r->ready);pthread_mutex_destroy(&r->mutex);
-  free(r->url);free(r->body);memset(r,0,sizeof *r);
+  free(r->url);free(r->body);if(r->header_text){outbound_wipe(r->header_text,strlen(r->header_text));free(r->header_text);}memset(r,0,sizeof *r);
 }
-PlBool iso_net_start(char *url,PlLong timeout,char *purpose,char *owner,PlTerm reference,PlTerm status) {
+PlBool iso_net_start(char *url,PlLong timeout,char *purpose,char *owner,char *header_text,PlTerm reference,PlTerm status) {
   if(!initialize())return PL_FALSE;
+  char explicit_owner[65]={0};const char *header_error=check_headers(header_text,explicit_owner);
+  if(header_error)return Pl_Un_String(header_error,status);
+  /* The policy pins the destination authority, including its HTTP Host. */
+  if(has_header(header_text,"host"))return Pl_Un_String("outbound_denied",status);
+  if(*explicit_owner)owner=explicit_owner;
+  if(strcmp(purpose,"rpc")&&*header_text)return Pl_Un_String("outbound_denied",status);
   if(strlen(url)>URL_MAX)return Pl_Un_String("request_too_large",status);
   if(strcmp(purpose,"rpc") && strcmp(purpose,"source"))return Pl_Un_String("outbound_denied",status);
   const char *broker=getenv("ISO_OUTBOUND_BROKER");
   if(broker&&strcmp(broker,"/broker.sock"))return Pl_Un_String("outbound_denied",status);
   OutboundPeer peer={0};const char *denied=broker?NULL:outbound_select(url,purpose,&peer);
   if(denied)return Pl_Un_String(denied,status);
+  if(peer.credential_file[0]&&has_header(header_text,"authorization"))return Pl_Un_String("outbound_credential_conflict",status);
   Request *r=NULL;for(int i=0;i<SLOTS;i++)if(!requests[i].id){r=&requests[i];break;}
   if(!r)return Pl_Un_String("promise_limit_exceeded",status);
   if(*owner) {
@@ -191,7 +246,8 @@ PlBool iso_net_start(char *url,PlLong timeout,char *purpose,char *owner,PlTerm r
     for(const char *p=owner;*p;p++)if(!((*p>='0'&&*p<='9')||(*p>='a'&&*p<='f')))return Pl_Un_String("invalid_query_owner",status);
   }
   snprintf(r->query_owner,sizeof r->query_owner,"%s",owner);
-  r->url=strdup(url);if(!r->url)return Pl_Un_String("out_of_memory",status);
+  r->url=strdup(url);r->header_text=strdup(header_text);
+  if(!r->url||!r->header_text){free(r->url);free(r->header_text);memset(r,0,sizeof *r);return Pl_Un_String("out_of_memory",status);}
   /* References are opaque ten-digit integers scoped to this worker. */
   long candidate;
   do { if(next_id>9999999999L)next_id=1000000000L;candidate=next_id++; }
@@ -202,7 +258,7 @@ PlBool iso_net_start(char *url,PlLong timeout,char *purpose,char *owner,PlTerm r
   pthread_mutex_init(&r->mutex,NULL);pthread_cond_init(&r->ready,NULL);
   if(pthread_create(&r->thread,NULL,run_request,r)) {
     pthread_cond_destroy(&r->ready);pthread_mutex_destroy(&r->mutex);
-    free(r->url);memset(r,0,sizeof *r);return Pl_Un_String("transport_initialization_failed",status);
+    free(r->url);free(r->header_text);memset(r,0,sizeof *r);return Pl_Un_String("transport_initialization_failed",status);
   }
   return Pl_Un_Integer(r->id,reference)&&Pl_Un_String("ok",status);
 }

@@ -20,10 +20,14 @@ static int broker_ready(int fd,short events,long long until,Request *r) {
 }
 static void *run_broker_request(Request *r) {
   const char *error="http_transport_error";int fd=-1;char *body=NULL,*request=NULL,*reply=NULL;
-  char *url=curl_easy_escape(NULL,r->url,0);size_t used=0;
+  char *url=curl_easy_escape(NULL,r->url,0),*fields=NULL;size_t used=0;
   long long until=broker_now()+r->timeout;
   if(!url){error="out_of_memory";goto done;}
   if(asprintf(&body,"url=%s&purpose=%s&query_owner=%s&timeout_ms=%ld",url,r->purpose,r->query_owner,r->timeout)<0){body=NULL;goto done;}
+  if(*r->header_text) {
+    fields=curl_easy_escape(NULL,r->header_text,0);if(!fields){error="out_of_memory";goto done;}
+    char *extended=NULL;if(asprintf(&extended,"%s&headers=%s",body,fields)<0)goto done;free(body);body=extended;
+  }
   if(asprintf(&request,"POST /fetch HTTP/1.1\r\nHost: broker\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n%s",strlen(body),body)<0){request=NULL;goto done;}
 #ifdef SOCK_CLOEXEC
   fd=socket(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0);
@@ -61,7 +65,7 @@ static void *run_broker_request(Request *r) {
   }
   r->body=strdup(start);if(!r->body){error="out_of_memory";goto done;}r->size=length;error=NULL;
 done:
-  if(fd>=0)close(fd);if(url)curl_free(url);free(body);free(request);free(reply);
+  if(fd>=0)close(fd);if(url)curl_free(url);if(fields)curl_free(fields);free(body);free(request);free(reply);
   pthread_mutex_lock(&r->mutex);r->error=error;r->done=1;
   pthread_cond_signal(&r->ready);pthread_mutex_unlock(&r->mutex);return NULL;
 }
