@@ -49,6 +49,24 @@ class Pins(unittest.TestCase):
         def output(args):return chain['cc'] if str(args[0])==fixture else chain['curl_config']
         with patch.object(config,'comparison_inputs',return_value=(fixture,Path('.'),fixture,Path('.'))),patch.object(config,'executable',return_value=fixture),patch.object(config,'output',side_effect=output),patch.object(config,'curl_runtime',return_value=chain['curl_runtime']),patch.object(config.platform,'system',return_value=host['system']),patch.object(config.platform,'machine',return_value=host['machine']),patch.object(config.platform,'release',return_value=host['release']):
             with self.assertRaisesRegex(RuntimeError,'Runtime binary differs'):config.record_run('must-not-run')
+    def test_candidate_requires_explicit_revision(self):
+        with patch.dict('os.environ', {'COMPARISON_MODE':'candidate',
+                                      'COMPARISON_TRINITY_REVISION':''}):
+            with self.assertRaisesRegex(RuntimeError,'full commit SHA'):
+                config.comparison_inputs()
+    def test_candidate_checks_exact_head_and_engine_selection(self):
+        env={'COMPARISON_MODE':'candidate','COMPARISON_TRINITY_REVISION':'a'*40,
+             'COMPARISON_SWI_VERSION':''}
+        with patch.dict('os.environ',env),patch.object(config,'output',return_value='b'*40):
+            with self.assertRaisesRegex(RuntimeError,'candidate revision mismatch'):
+                config.comparison_inputs()
+        with patch.dict('os.environ',env),patch.object(config,'output',return_value='a'*40):
+            with self.assertRaisesRegex(RuntimeError,'explicit COMPARISON_SWI_VERSION'):
+                config.comparison_inputs()
+    def test_candidate_cannot_claim_historical_baseline(self):
+        with patch.dict('os.environ',{'COMPARISON_MODE':'candidate'}):
+            with self.assertRaisesRegex(RuntimeError,'cannot claim'):
+                config.record_run('candidate',strict=True)
     def test_missing_executable(self):
         with patch.dict('os.environ',{'SWIPL':'/does/not/exist'}),self.assertRaisesRegex(RuntimeError,'Missing executable'):config.executable('SWIPL','swipl')
 

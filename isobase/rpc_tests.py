@@ -101,10 +101,15 @@ with tempfile.TemporaryFile(mode='w+') as log:
             expect(f"rpc('{uri}',q(X),[src_text('q(a).'),src_list([q(b)])])",['a','b'])
             expect(f"rpc('{uri}',q(X),[src_list([q(a)]),src_text('q(b).'),src_list([q(c)])])",['a','b','c'])
             expect(f"rpc('{uri}',true,[timeout(T)]),var(T),X=ok",['ok'])
-            expect(f"rpc('{uri}',true,[once(O)]),X=O",['true'])
+            # Language Boolean options require an instantiated atom.
+            error(f"rpc('{uri}',true,[once(O)])",'instantiation_error')
             assert worker(f"rpc('{uri}',fail)")==[{'type':'failure'}]
             zero=worker(f"rpc('{uri}',throw(should_not_run),[limit(0)])")
-            assert zero==[{'type':'failure'}],('GNU' if uri==gu else 'SWI',zero)
+            if uri==gu:
+                assert zero==[{'type':'failure'}],zero
+            else:
+                assert len(zero)==1 and zero[0]['type']=='error' and 'positive_integer' in zero[0]['term'],zero
+                print('SWI retains its documented positive-page-size boundary; GNU zero-limit failure remains separate')
             error(f"rpc('{uri}',throw(boom))",'boom')
             expect(f"promise('{uri}',member(X,[a,b,c]),R,[template(X),limit(1),offset(1)]),yield(R,M),M=success([Y],true)",['b'],template='Y')
             expect(f"promise('{uri}',fail,R),yield(R,M)",['failure'],template='M')
@@ -114,7 +119,8 @@ with tempfile.TemporaryFile(mode='w+') as log:
             for conversion in ['atom_codes','atom_chars']:
                 expect(f"{conversion}('label(\\'東京😀\\').',Text),rpc('{uri}',label(A),[src_text(Text)]),atom_codes(A,X)",
                        ["'.'(26481,'.'(20140,'.'(128512,[])))"])
-            expect(f"rpc('{uri}',from_uri(X),[src_uri('{fake}/redirect-source')])",['remote'])
+            # S01 deliberately denies source redirects, even on the same origin.
+            error(f"rpc('{uri}',from_uri(X),[src_uri('{fake}/redirect-source')])",'http_redirect_denied')
         # Stable state-machine outcomes compared on both calling runtimes.
         promise_cases=[
             ("(yield(123,M)->Out=bad;Out=missing)",'missing'),
@@ -128,9 +134,21 @@ with tempfile.TemporaryFile(mode='w+') as log:
             (f"promise('{fake}',fixture_slow,R),catch(yield(R,_,[timeout(0),on_timeout(throw(ball))]),ball,true),yield(R,success([ready],false)),Out=retained",'retained'),
             (f"promise('{gu}',X=a,R,[template(X)]),var(X),yield(R,success([Y],false)),Y=a,var(X),Out=isolated",'isolated'),
         ]
-        for goal,expected in promise_cases:
+        for index,(goal,expected) in enumerate(promise_cases):
             for caller in [gp,sp]:
-                result=get(caller,goal)
+                checked_goal=goal
+                # Missing references are callbacks/failure in GNU, formal
+                # existence errors in the native SWI API. Assert each boundary.
+                if caller==sp and index in (0,1):
+                    checked_goal='catch(yield(123,_),error(existence_error(promise,123),_),Out=missing)'
+                elif caller==sp and index==2:
+                    checked_goal=f"promise('{gu}',true,R),yield(R,success([true],false)),catch(yield(R,_),error(existence_error(promise,R),_),Out=gone)"
+                elif caller==sp and index==6:
+                    checked_goal=goal.replace('var(M)','M==timeout')
+                elif caller==sp and index==7:
+                    checked_goal=goal.replace('yield(R,_,[timeout(0),on_timeout(fail)])',
+                        'catch(yield(R,_,[timeout(0),on_timeout(fail)]),error(timeout_callback_failed(R),_),fail)')
+                result=get(caller,checked_goal)
                 assert result['type']=='success' and result['data'][0]['Out']==expected,(caller,goal,result)
         print(f'PASS {len(promise_cases)} promise state cases on GNU and SWI')
         # SWI's client drives GNU's server, including native remote pagination.
@@ -166,8 +184,8 @@ with tempfile.TemporaryFile(mode='w+') as log:
         error(f"rpc('{fake}/variable',true)",'remote_protocol_error')
         error(f"rpc('{fake}/large',true)",'response_too_large')
         error(f"rpc('{fake}/status-error',true)",'http_status_error')
-        error(f"rpc('{fake}/redirect-loop',true)",'http_redirect_error')
-        error(f"rpc('{fake}/redirect-file',true)",'http_transport_error')
+        error(f"rpc('{fake}/redirect-loop',true)",'http_redirect_denied')
+        error(f"rpc('{fake}/redirect-file',true)",'http_redirect_denied')
         # Transport errors and malformed replies must free the promise slot.
         for path,kind in [('status-error','http_status_error'),('bad','remote_protocol_error')]:
             expect(f"findall(N,(between(1,24,N),promise('{fake}/{path}',true,R),catch(yield(R,_),error({kind},_),true),yield(R,_,[on_timeout(true)])),Ns),length(Ns,X)",['24'])

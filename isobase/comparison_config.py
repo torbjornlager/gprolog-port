@@ -51,13 +51,39 @@ def comparison_inputs():
     verify_contract()
     trinity=Path(os.environ.get('TRINITY_ROOT',PROJECT.parent/'trinity-demonstrator')).resolve()
     gnu=Path(os.environ.get('GPROLOG_SOURCE',PROJECT/'gprolog')).resolve()
-    for name,path in [('trinity',trinity),('gprolog',gnu)]:verify_checkout(path,LOCK['repositories'][name]['commit'])
+    candidate = os.environ.get('COMPARISON_MODE') == 'candidate'
+    if candidate:
+        revision = os.environ.get('COMPARISON_TRINITY_REVISION', '')
+        if not re.fullmatch(r'[0-9a-f]{40}', revision):
+            raise RuntimeError('candidate mode requires COMPARISON_TRINITY_REVISION as a full commit SHA')
+        actual = output(['git','-C',trinity,'rev-parse','HEAD'])
+        if actual != revision:
+            raise RuntimeError('Comparison candidate revision mismatch')
+        if not os.environ.get('COMPARISON_SWI_VERSION'):
+            raise RuntimeError('candidate mode requires an explicit COMPARISON_SWI_VERSION')
+    else:
+        verify_checkout(trinity,LOCK['repositories']['trinity']['commit'])
+    verify_checkout(gnu,LOCK['repositories']['gprolog']['commit'])
     swi=executable('SWIPL','swipl')
     gprolog=executable('GPROLOG',str(PROJECT/'install/bin/gprolog'))
     for name,exe,pattern in [('swi',swi,r'SWI-Prolog version ([\d.]+)'),('gprolog',gprolog,r'GNU Prolog\) ([\d.]+)')]:
         version=re.search(pattern,output([exe,'--version']))
-        if not version or version[1]!=LOCK['versions'][name]:raise RuntimeError(f'{name} version mismatch; expected {LOCK["versions"][name]}')
+        expected = os.environ['COMPARISON_SWI_VERSION'] if candidate and name == 'swi' else LOCK['versions'][name]
+        if not version or version[1]!=expected:raise RuntimeError(f'{name} version mismatch; expected {expected}')
     return swi,trinity,gprolog,gnu
+
+def native_source(trinity, name):
+    legacy = trinity/'prolog'/'web_prolog'/name
+    if legacy.is_file(): return legacy
+    if os.environ.get('COMPARISON_MODE') != 'candidate':
+        raise RuntimeError('historical comparison native source is missing')
+    # Reuse the consumer's exact-pin and payload validation; do not discover a
+    # floating sibling checkout or silently replace historical dependencies.
+    import sys
+    setup = json.loads(output([sys.executable,trinity/'tools/setup_swi.py','--validate']))
+    path = Path(setup['native_root'])/'prolog'/'web_prolog'/name
+    if not path.is_file(): raise RuntimeError('selected native source is missing')
+    return path
 
 def curl_runtime():
     library=ctypes.util.find_library('curl')
@@ -67,8 +93,9 @@ def curl_runtime():
 
 def record_run(label,strict=None):
     mode=os.environ.get('COMPARISON_MODE','baseline')
-    if mode not in ('baseline','source-pinned'):raise RuntimeError('COMPARISON_MODE must be baseline or source-pinned')
+    if mode not in ('baseline','source-pinned','candidate'):raise RuntimeError('COMPARISON_MODE must be baseline, source-pinned or candidate')
     if strict is None:strict=mode=='baseline'
+    if mode=='candidate' and strict:raise RuntimeError('candidate mode cannot claim the strict historical baseline')
     swi,trinity,gprolog,gnu=comparison_inputs()
     cc=executable('CC','cc')
     toolchain={'cc':output([cc,'--version']).splitlines()[0], 'curl_config':output([os.environ.get('CURL_CONFIG','curl-config'),'--version']), 'curl_runtime':curl_runtime()}
@@ -84,7 +111,13 @@ def record_run(label,strict=None):
     if strict and not runtime_match:raise RuntimeError('Runtime binary differs from the locked baseline build')
     # Include dirty/new implementation sources, rather than labelling them HEAD.
     sources={p.name:digest(p) for p in sorted(ROOT.iterdir()) if p.suffix in ('.c','.h','.pl','.py') or p.name=='Makefile'}
-    report={'schema':1,'mode':'baseline' if strict else 'source-pinned','python':platform.python_version(),'contract_version':LOCK['contract_version'],'lock_sha256':digest(LOCK_PATH),'comparison_revisions':{k:v['commit'] for k,v in LOCK['repositories'].items()},'implementation_head':output(['git','-C',PROJECT,'rev-parse','HEAD']),'implementation_status':output(['git','-C',PROJECT,'status','--porcelain']),'source_sha256':sources,'platform':host,'toolchain':toolchain,'baseline_environment_match':exact,'baseline_runtime_match':runtime_match,'binaries':binaries,'note':'Binary fingerprints identify observed artifacts; source revisions and runtime versions alone do not prove build provenance.'}
+    report={'schema':1,'mode':'baseline' if strict else mode,'python':platform.python_version(),'contract_version':LOCK['contract_version'],'lock_sha256':digest(LOCK_PATH),'comparison_revisions':{k:v['commit'] for k,v in LOCK['repositories'].items()},'implementation_head':output(['git','-C',PROJECT,'rev-parse','HEAD']),'implementation_status':output(['git','-C',PROJECT,'status','--porcelain']),'source_sha256':sources,'platform':host,'toolchain':toolchain,'baseline_environment_match':exact,'baseline_runtime_match':runtime_match,'binaries':binaries,'note':'Binary fingerprints identify observed artifacts; source revisions and runtime versions alone do not prove build provenance.'}
+    if mode == 'candidate':
+        report['candidate'] = {'revision': output(['git','-C',trinity,'rev-parse','HEAD']),
+            'status': output(['git','-C',trinity,'status','--porcelain']),
+            'swipl_version': os.environ['COMPARISON_SWI_VERSION'],
+            'files': {name: digest(trinity/name) for name in output(['git','-C',trinity,'ls-files']).splitlines()
+                      if (trinity/name).is_file() and not (trinity/name).is_symlink()}}
     parent=ROOT/'build'/'comparison-runs';parent.mkdir(parents=True,exist_ok=True)
     stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     target=Path(tempfile.mkdtemp(prefix=f'{label}-{stamp}-',dir=parent))

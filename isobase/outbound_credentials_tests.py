@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import threading
 import urllib.parse
-from comparison_config import record_run,RUN_DIRECTORIES,digest
+from comparison_config import record_run,RUN_DIRECTORIES,digest,native_source
 from https_tests import command,certificate
 
 TOKEN='Gnu_Test_Only_'+('A'*40)
@@ -137,11 +137,16 @@ def main():
             assert len(gnu.server.observations)==before
             # A pinned SWI client reads the token privately, verifies our CA, then calls GNU.
             script=root/'caller.pl'
-            script.write_text(f""":- use_module('{trinity}/prolog/web_prolog/rpc.pl').
+            script.write_text(f""":- use_module('{native_source(trinity,'rpc.pl')}').
 :- use_module(library(readutil)).
+% Trust only the disposable bridge through the owner HTTP-client hook.
+% cacert_file/1 is not a public SWI rpc option.
+:- multifile http:open_options/2.
+http:open_options(Parts,[cacerts([file('{root}/ca.pem')])]) :-
+    memberchk(host(localhost),Parts),memberchk(port({gnu.server.server_port}),Parts).
 :- initialization(main,main).
 main :- read_file_to_string('{token}',T,[]),atomics_to_string(['Bearer ',T],H),
-    rpc:rpc('{gnu.uri}',true,[request_header('Authorization'=H),cacert_file('{root}/ca.pem')]),writeln(ok).
+    rpc:rpc('{gnu.uri}',true,[request_header('Authorization'=H)]),writeln(ok).
 """)
             p=subprocess.run([swi,'-q',str(script)],capture_output=True,text=True,timeout=10)
             assert TOKEN not in p.stdout+p.stderr

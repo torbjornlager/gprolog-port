@@ -119,8 +119,17 @@ add_rpc_boundary_cases(case)
 CAPABILITIES="runtime_property(implementation(gnu_native)),runtime_property(persistent(false)),runtime_property(inbound_addressable(false)),runtime_property(dom(false)),runtime_property(actor_isolation(os_process)),runtime_property(hard_termination(true)),findall(P,runtime_property(P),Ps),length(Ps,6)"
 
 def main():
+    import argparse
+    import threading
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--family',action='append',help='run selected corpus families')
+    parser.add_argument('--report',type=Path,help='write evidence without replacing historical output')
+    parser.add_argument('--trace-peer',action='store_true',help='record disposable RPC peer responses')
+    args=parser.parse_args()
+    selected=[row for row in CASES if not args.family or row['family'] in args.family]
+    if not selected:parser.error('no cases selected')
     from rpc_source_tests import SourceServer
-    processes=[];results=[]
+    processes=[];results=[];peer_proxy=None;peer_trace=[]
     from boundary_decisions import validate
     decisions=validate()
     boundaries_by_key={(d['family'],d['original_goal'],d['original_template']):d for d in decisions}
@@ -130,7 +139,7 @@ def main():
             with socket.socket() as sock:sock.bind(('127.0.0.1',0));sp=sock.getsockname()[1]
             shared=ROOT/'shared-example.pl'
             # This disposable reference runs the entire corpus in one window.
-            request_budget=max(1000,2*len(CASES))
+            request_budget=max(1000,2*len(selected))
             goal=f"node:node({sp},[profile(isobase),auth(open),max_call_requests_per_window({request_budget}),ip('127.0.0.1'),load_shared_db_file('{shared}')]),writeln(ready),flush_output,thread_get_message(stop)"
             swi=subprocess.Popen([SWI,'-q','-s',str(TRINITY/'load.pl'),'-g',goal],stdout=subprocess.PIPE,stderr=log,text=True);processes.append(swi)
             assert select.select([swi.stdout],[],[],15)[0],'SWI startup timeout'
@@ -141,6 +150,19 @@ def main():
             node=subprocess.Popen(argv,stdout=subprocess.PIPE,stderr=log,text=True);processes.append(node)
             gp=json.loads(node.stdout.readline())['port']
             allow(f'http://127.0.0.1:{gp}')
+            rpc_target=f'http://127.0.0.1:{gp}'
+            if args.trace_peer:
+                class PeerTrace(http.server.BaseHTTPRequestHandler):
+                    def log_message(self,*a):pass
+                    def do_GET(self):
+                        connection=http.client.HTTPConnection('127.0.0.1',gp,timeout=5)
+                        connection.request('GET',self.path)
+                        response=connection.getresponse();body=response.read();connection.close()
+                        peer_trace.append({'path':self.path,'status':response.status,'body':body.decode()[:2000]})
+                        self.send_response(response.status);self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
+                peer_proxy=http.server.ThreadingHTTPServer(('127.0.0.1',0),PeerTrace)
+                threading.Thread(target=peer_proxy.serve_forever,daemon=True).start()
+                rpc_target=f'http://127.0.0.1:{peer_proxy.server_port}';allow(rpc_target)
             def request(port,params):
                 c=http.client.HTTPConnection('127.0.0.1',port,timeout=5)
                 c.request('GET','/call?'+urllib.parse.urlencode(params))
@@ -148,10 +170,10 @@ def main():
                 assert r.status==200,(r.status,body)
                 return body
             assert request(gp,dict(goal=CAPABILITIES,template='ok',format='prolog')).strip()=='success([ok],false).'
-            for row in CASES:
+            for row in selected:
                 params={k:v for k,v in row.items() if k not in ('family','expected_gnu')};params.update(format='prolog');params.setdefault('limit',100)
                 # Both clients use the same disposable target for RPC option comparisons.
-                params={k:(v.replace('__RPC_TARGET__',f'http://127.0.0.1:{gp}').replace('__RPC_PORT__',str(gp)).replace('__SOURCE_TARGET__',source_server.uri) if isinstance(v,str) else v) for k,v in params.items()}
+                params={k:(v.replace('__RPC_TARGET__',rpc_target).replace('__RPC_PORT__',rpc_target.rsplit(':',1)[1]).replace('__SOURCE_TARGET__',source_server.uri) if isinstance(v,str) else v) for k,v in params.items()}
                 try:
                     reference=request(sp,params) if row['family']!='guard_regression' else 'not_run_reference_guard_gap'
                     actual=request(gp,params)
@@ -171,7 +193,7 @@ def main():
                 result=dict(**row,pass_=same,reference=reference,actual=actual)
                 if same is None:result.update(boundary_id=decision['id'],disposition=decision['disposition'])
                 results.append(result)
-            output=ROOT/'conformance-results.json';output.write_text(json.dumps(results,indent=2)+'\n')
+            output=args.report or ROOT/'conformance-results.json';output.write_text(json.dumps(results,indent=2)+'\n')
             (RUN_DIRECTORIES['conformance']/'results.json').write_bytes(output.read_bytes())
             failures=[r for r in results if r['pass_'] is False]
             guards=sum(r['family']=='guard_regression' for r in results)
@@ -182,6 +204,9 @@ def main():
             assert not failures,f'{len(failures)} contract differences; see {output}'
         finally:
             source_server.close()
+            if peer_proxy:
+                peer_proxy.shutdown();peer_proxy.server_close()
+                (RUN_DIRECTORIES['conformance']/'peer-trace.json').write_text(json.dumps(peer_trace,indent=2)+'\n')
             for p in processes:p.terminate()
             for p in processes:
                 try:p.wait(timeout=5)

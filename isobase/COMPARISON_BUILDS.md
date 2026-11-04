@@ -117,3 +117,50 @@ Comparison fixtures now create owner-only temporary outbound policies and grant
 only their exact dynamically allocated origins. `outbound_test_policy.py` shares
 these grants with test child processes; it never edits an owner-supplied policy.
 Missing policy remains deny-by-default in production and direct workers.
+
+## Current-source candidate comparisons
+
+The historical baseline and source-pinned modes retain their original locks.
+Use an explicit candidate selection to compare a newer demonstrator and SWI:
+
+```sh
+COMPARISON_MODE=candidate \
+COMPARISON_TRINITY_REVISION=FULL_40_CHARACTER_DEMONSTRATOR_HEAD \
+COMPARISON_SWI_VERSION=10.1.19 \
+WP_NATIVE_STATE=/path/to/validated/native-swi.json \
+python3 conformance_tests.py
+```
+
+Candidate mode still checks the selected HEAD, explicit SWI version, GNU engine
+source pin and contract hashes. It records dirty status and hashes of every
+tracked nonsymlink demonstrator input as well as GNU sources and binaries.
+This is current candidate evidence, not a reproduction of the historical build.
+
+## Current manual versus the retained ISO draft
+
+The demonstrator's current language manual governs new deployment checks. The
+older ISOBASE 0.2 draft remains an independently versioned target: its required
+code-list reader mode, ISO arithmetic restrictions and closed transport options
+must not silently override the current manual's selected reader modes and
+explicit native transport options. Its existing required failures and frozen
+locks remain intact as historical draft evidence.
+
+Use the implementation-neutral current-manual selection for release checks:
+
+```sh
+python3 ../../trinity-conformance/adapters/local_isobase.py \
+  --demonstrator-root ../../trinity-demonstrator --gnu-root .. \
+  --output /fresh/path/current-manual
+python3 ../../trinity-conformance/runner/validate_reports.py /fresh/path/current-manual
+```
+
+It starts disposable, bounded SWI and GNU nodes and runs the shared ISOBASE HTTP
+and HTTP interoperability manifests unchanged, with exact fixture-only egress
+grants. Every selected required assertion must pass; missing reports, process
+errors and unsupported cases fail the selection. It does not claim full ISOBASE
+certification or count differences in the old draft as passes.
+
+`conformance_tests.py --family NAME --report FILE` can reproduce a selected older
+comparison family without replacing historical evidence. `--trace-peer` records
+its disposable peer's HTTP responses for fixture/admission diagnosis. Those
+comparisons keep their original assertions and nonzero status on disagreement.
