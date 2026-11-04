@@ -37,7 +37,8 @@ static int iso_query_seccomp(void) {
     BPF_STMT(BPF_RET|BPF_K,SECCOMP_RET_KILL_PROCESS),
 #endif
     /* No IP, packet or netlink sockets, even from deliberately native code. */
-    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K,SYS_socket,0,4),
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K,SYS_socket,1,0),
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K,SYS_socketpair,0,4),
     BPF_STMT(BPF_LD|BPF_W|BPF_ABS,offsetof(struct seccomp_data,args[0])),
     BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K,AF_UNIX,1,0),
     BPF_STMT(BPF_RET|BPF_K,SECCOMP_RET_ERRNO|EPERM),
@@ -72,6 +73,10 @@ static int iso_query_seccomp(void) {
     ISO_DENY_SYSCALL(SYS_setresuid), ISO_DENY_SYSCALL(SYS_setresgid),
     ISO_DENY_SYSCALL(SYS_setreuid), ISO_DENY_SYSCALL(SYS_setregid),
     ISO_DENY_SYSCALL(SYS_setgroups), ISO_DENY_SYSCALL(SYS_capset),
+    ISO_DENY_SYSCALL(SYS_setfsuid), ISO_DENY_SYSCALL(SYS_setfsgid),
+#ifdef SYS_pidfd_getfd
+    ISO_DENY_SYSCALL(SYS_pidfd_getfd),
+#endif
     ISO_DENY_SYSCALL(SYS_bpf), ISO_DENY_SYSCALL(SYS_perf_event_open),
     ISO_DENY_SYSCALL(SYS_keyctl), ISO_DENY_SYSCALL(SYS_add_key),
     ISO_DENY_SYSCALL(SYS_request_key), ISO_DENY_SYSCALL(SYS_open_by_handle_at),
