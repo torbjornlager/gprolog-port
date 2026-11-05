@@ -116,7 +116,7 @@ from rpc_boundary_cases import add_cases as add_rpc_boundary_cases
 add_rpc_boundary_cases(case)
 
 # Host capabilities intentionally differ from SWI; verify the GNU declaration.
-CAPABILITIES="runtime_property(implementation(gnu_native)),runtime_property(persistent(false)),runtime_property(inbound_addressable(false)),runtime_property(dom(false)),runtime_property(actor_isolation(os_process)),runtime_property(hard_termination(true)),findall(P,runtime_property(P),Ps),length(Ps,6)"
+CAPABILITIES=r"\+runtime_property(implementation(_)),runtime_property(persistent(false)),runtime_property(inbound_addressable(false)),runtime_property(dom(false)),runtime_property(actor_isolation(independent)),runtime_property(hard_termination(true)),findall(P,runtime_property(P),Ps),length(Ps,5)"
 
 def main():
     import argparse

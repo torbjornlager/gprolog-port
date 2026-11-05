@@ -38,11 +38,10 @@ iso_time_report(Start) :-
     format(user_error,'% CPU time: ~d ms~n',[Elapsed]).
 
 % These describe this query runtime, not persistent application storage.
-iso_runtime_property(implementation(gnu_native)).
 iso_runtime_property(persistent(false)).
 iso_runtime_property(inbound_addressable(false)).
 iso_runtime_property(dom(false)).
-iso_runtime_property(actor_isolation(os_process)).
+iso_runtime_property(actor_isolation(independent)).
 iso_runtime_property(hard_termination(true)).
 
 % SWI's visible arg/3 also enumerates argument positions when N is free.
