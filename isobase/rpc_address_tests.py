@@ -52,7 +52,7 @@ def check(execute):
             execute(f"{operation}('{base}',[src_uri('{base}/source?name=a%2Fb')])")
             assert server.paths[0]=='/source?name=a%2Fb' and len(server.paths)==2,server.paths
             checks+=1
-            execute(f"{operation}('127.0.0.1':{server.server_port},[])")
+            execute(f"catch(({operation}('127.0.0.1':{server.server_port},[]),fail),error(type_error(atom,'127.0.0.1':{server.server_port}),_),true)")
             # Invalid attempts must not exhaust the 16 asynchronous request slots.
             execute(f"findall(N,(between(1,24,N),address_rejected('{base}?x',{operation},[])),Ns),length(Ns,24),{operation}('{base}',[])")
             checks+=2

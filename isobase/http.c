@@ -300,7 +300,9 @@ static int start_query(Query *q,Request *r,char *key) {
     if(snprintf(q->lease,sizeof q->lease,"%s/%u",lease_directory,q->jail_uid)>=(int)sizeof q->lease){free(term);goto failed;}
     int lease=open(q->lease,O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0644);
     const char *group=r->budget?r->budget:"0000000000000000000000000000000000000000000000000000000000000000";
-    if(lease<0||!write_all(lease,group,64)||!write_all(lease,"\n",1)){if(lease>=0)close(lease);free(term);goto failed;}
+    const char *context=r->owner?r->owner:"0000000000000000000000000000000000000000000000000000000000000000";
+    if(lease<0||!write_all(lease,group,64)||!write_all(lease,"\n",1)||
+       !write_all(lease,context,64)||!write_all(lease,"\n",1)){if(lease>=0)close(lease);free(term);goto failed;}
     close(lease);
     snprintf(uid_text,sizeof uid_text,"%u",q->jail_uid);
     args[next++]="--jail";args[next++]=(char *)query_jail;
@@ -317,11 +319,17 @@ static int start_query(Query *q,Request *r,char *key) {
   if(!query_jail)posix_spawn_file_actions_addopen(&a,2,"/dev/null",O_WRONLY,0);
   /* Explicit configuration only; never inherit ambient credentials or loaders. */
   const char *names[]={"LANG","LC_ALL","LC_CTYPE","TZ","ISO_CA_FILE","ISO_OUTBOUND_POLICY"};
-  char *environment[8]={0};size_t count=0;int status=0;
+  char *environment[9]={0};size_t count=0;int status=0;
   for(size_t i=0;i<sizeof names/sizeof names[0];i++) {
     if(query_jail&&i>=4)continue;
     const char *value=getenv(names[i]);
     if(value) {if(asprintf(&environment[count],"%s=%s",names[i],value)<0){status=ENOMEM;break;}count++;}
+  }
+  if(!status) {
+    int written=query_jail
+      ? asprintf(&environment[count],"ISO_LOCAL_NODE_URI=http://localhost")
+      : asprintf(&environment[count],"ISO_LOCAL_NODE_URI=http://127.0.0.1:%u",bound_port);
+    if(written<0)status=ENOMEM;else count++;
   }
   if(query_jail) {
     environment[count++]=strdup("ISO_OUTBOUND_BROKER=/broker.sock");

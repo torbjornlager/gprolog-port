@@ -39,6 +39,7 @@ rpc-test: all
 	python3 rpc_tests.py
 	python3 rpc_source_tests.py
 	python3 rpc_address_tests.py
+	python3 rpc_localhost_tests.py
 	python3 https_tests.py
 https-test: all
 	python3 https_tests.py
@@ -64,6 +65,7 @@ local-test: query-worker query-supervisor isobase-node
 	python3 policy_tests.py
 	python3 numeric_contract_tests.py
 	python3 rpc_address_tests.py
+	python3 rpc_localhost_tests.py
 	python3 supervisor_tests.py
 	python3 memory_tests.py
 	python3 security_tests.py

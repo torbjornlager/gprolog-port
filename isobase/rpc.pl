@@ -6,6 +6,7 @@
 :- foreign(iso_net_cancel(+integer)).
 :- foreign(iso_net_escape(+string,term)).
 :- foreign(iso_net_node_uri(+string)).
+:- foreign(iso_net_local_node_uri(term)).
 :- foreign(iso_net_nonce(term)).
 
 iso_rpc(Scope,URI,Goal,Options) :-
@@ -102,7 +103,9 @@ iso_param(Base,Key,Value,Out) :-
     (iso_net_escape(Atom,Encoded)->true;throw(error(request_too_large,rpc/3))),
     atom_concat(Base,'&',A),atom_concat(A,Key,B),atom_concat(B,'=',C),atom_concat(C,Encoded,Out).
 iso_uri(URI0,URI) :-
-    iso_source_uri(URI0,A),
+    (var(URI0)->throw(error(instantiation_error,rpc/3));true),
+    (atom(URI0)->true;throw(error(type_error(atom,URI0),rpc/3))),
+    (URI0==localhost -> iso_net_local_node_uri(A);iso_source_uri(URI0,A)),
     (iso_net_node_uri(A)->true;throw(error(domain_error(http_uri,A),rpc/3))),
     (sub_atom(A,_,1,0,'/')->atom_length(A,N),M is N-1,sub_atom(A,0,M,1,URI);URI=A).
 % A source URL identifies an exact resource, not a node base URL.

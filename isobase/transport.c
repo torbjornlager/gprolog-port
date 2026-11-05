@@ -47,6 +47,11 @@ static int initialize(void) {
 /* Parse only: no resolver, socket, request slot or worker thread is started.
  * Keep the caller's path bytes; this handle validates without normalizing them.
  * Exact source-resource URLs intentionally use a separate Prolog interface. */
+/* Trusted controller metadata only; never inferred from a caller URL/header. */
+PlBool iso_net_local_node_uri(PlTerm uri) {
+  const char *value=getenv("ISO_LOCAL_NODE_URI");
+  return Pl_Un_String(value&&*value?value:"http://localhost",uri);
+}
 PlBool iso_net_node_uri(char *url) {
   size_t length=strlen(url);
   if(length>URL_MAX)return PL_FALSE;

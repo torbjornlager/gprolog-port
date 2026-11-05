@@ -197,3 +197,18 @@ Nodes now require `--auth-token-file FILE` or explicit `--auth open` at startup.
 The compatibility fixtures select open mode. GNU RPC has no destination bearer
 credential option yet, so it cannot currently call a protected node. Owner
 credentials are never implicitly forwarded to outbound URLs. See SECURITY.md.
+
+
+### Current-node destination
+
+`localhost` is accepted as the destination atom of `rpc` and `promise`; it does
+not enable `Host:Port` terms or alter source-URI interpretation. The HTTP
+controller supplies its local listener as trusted worker metadata. Direct
+workers without a configured listener retain the normal outbound-policy check.
+Contained workers use the broker's reserved `http://localhost/call` route.
+Only the fixed local stateless controller endpoint is reachable through it;
+source requests, alternate loopback addresses/ports and administration paths
+are denied. The two-line root-owned worker lease carries budget and client
+identity. The broker binds local continuation ownership to that identity and
+nonce, supplies controller credentials itself, and retains all admission limits.
+The updated controller and broker must be promoted together.
