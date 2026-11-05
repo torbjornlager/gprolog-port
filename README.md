@@ -193,3 +193,24 @@ The project targets ISOBASE: source loading and isolation, query execution,
 answer pagination, the HTTP `/call` contract and the remaining profile
 facilities. See [isobase/README.md](isobase/README.md) for the implementation
 plan. ISOTOPE may follow after ISOBASE is complete.
+
+### ISOBASE promise ownership and retirement
+
+A promise belongs to its query execution context, including the environment's
+standalone root execution. Fresh HTTP requests cannot collect or dispose of
+another live query's promises, even when they use the same authentication token.
+A retained paged query resumes with its explicit query-owner capability and the
+next continuation offset; authentication alone does not retain that execution.
+Equal reference numbers in different workers identify only each worker's own
+promise. Forwarding a reference by RPC grants no access at another node.
+
+Explicit promise cleanup cancels its pending transport while later promises can
+still run. Stopping a standalone query or retiring an idle HTTP query releases
+its execution processes and pending connections. A response sent afterward
+cannot revive the retired execution or make its reference available to a fresh
+request. The controlled producer tests check arrival, connection closure and
+late-response ordering without waiting for a slow public service.
+
+Run `make -C isobase promise-context-test` for the six maintained ownership and
+retirement groups. They also run in `local-test`; they do not certify every
+promise/yield mode, error or transport policy.
