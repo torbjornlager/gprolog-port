@@ -48,16 +48,17 @@ isobase-node: http.c http_security.h credential_file.h process_security.h protoc
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -pthread http.c -o $@
 isobase-node-asan: http.c http_security.h credential_file.h process_security.h protocol.h memory.h memory_tree.h
 	$(CC) -std=c11 -Wall -Wextra -Werror -g -O1 -fsanitize=address,undefined -pthread http.c -o $@
-query-supervisor: supervisor.c linux_query_jail.h process_security.h protocol.h memory.h
+query-supervisor: supervisor.c linux_query_jail.h process_security.h protocol.h memory.h node_settings.h
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 supervisor.c -o $@
-query-supervisor-asan: supervisor.c linux_query_jail.h process_security.h protocol.h memory.h
+query-supervisor-asan: supervisor.c linux_query_jail.h process_security.h protocol.h memory.h node_settings.h
 	$(CC) -std=c11 -Wall -Wextra -Werror -g -O1 -fsanitize=address,undefined supervisor.c -o $@
-query-worker: query.pl source.pl policy.pl prologue.pl text.pl rpc.pl rpc_http_fields.pl shared_empty.pl terms.c transport.c outbound_broker.h outbound_policy.h outbound_credentials.h credential_file.h process_security.h worker.c protocol.h $(APP)
+query-worker: query.pl source.pl policy.pl prologue.pl text.pl rpc.pl rpc_http_fields.pl shared_empty.pl terms.c transport.c outbound_broker.h outbound_policy.h outbound_credentials.h credential_file.h process_security.h worker.c protocol.h node_settings.h $(APP)
 	$(ROOT)/install/bin/gplc --no-top-level query.pl source.pl policy.pl prologue.pl text.pl rpc.pl shared_empty.pl terms.c transport.c $(APP) worker.c -L -lcurl -L -lpthread -o $@
-query-worker-asan: query.pl source.pl policy.pl prologue.pl text.pl rpc.pl rpc_http_fields.pl shared_empty.pl terms.c transport.c outbound_broker.h outbound_policy.h outbound_credentials.h credential_file.h process_security.h worker.c protocol.h $(APP)
+query-worker-asan: query.pl source.pl policy.pl prologue.pl text.pl rpc.pl rpc_http_fields.pl shared_empty.pl terms.c transport.c outbound_broker.h outbound_policy.h outbound_credentials.h credential_file.h process_security.h worker.c protocol.h node_settings.h $(APP)
 	$(ROOT)/install/bin/gplc --no-top-level query.pl source.pl policy.pl prologue.pl text.pl rpc.pl shared_empty.pl terms.c transport.c $(APP) worker.c -C -fsanitize=address,undefined -L -fsanitize=address,undefined -L -lcurl -L -lpthread -o $@
 test: local-test credentials-test
 local-test: query-worker query-supervisor isobase-node
+	python3 node_settings_tests.py
 	python3 comparison_config_tests.py
 	python3 tests.py
 	python3 source_tests.py

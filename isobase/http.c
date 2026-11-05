@@ -22,7 +22,7 @@
 #include "memory_tree.h"
 #include "http_security.h"
 
-#define MAX_QUERIES 32
+#define MAX_QUERIES ISO_MAX_NODE_QUERIES
 #define MAX_CLIENTS 32
 #define REQUEST_CAP 262144
 #define RESPONSE_CAP 1048576
@@ -283,13 +283,17 @@ static int start_query(Query *q,Request *r,char *key) {
     close(fd);
   }
   char *term=NULL;if(asprintf(&term,"query((%s),(%s))",r->goal,r->template)<0)goto failed;
-  char limit[32],offset[32],budget[32],idle[32],memory[32];
+  char limit[32],offset[32],budget[32],idle[32],memory[32],public_node[64];
   snprintf(limit,sizeof limit,"%ld",r->limit);snprintf(offset,sizeof offset,"%ld",r->offset);
   snprintf(budget,sizeof budget,"%d",time_ms);snprintf(idle,sizeof idle,"%d",idle_ms+250);
   snprintf(memory,sizeof memory,"%d",memory_mb);
+  snprintf(public_node,sizeof public_node,"%u:%d:%s",bound_port,max_queries,
+           owner_token_length?"private":"open");
   char uid_text[16];
   char *args[32]={supervisor,term,limit,"--offset",offset,"--format",r->format,"--time-ms",budget,"--idle-ms",idle,"--memory-mb",memory};
   int next=13;
+  /* Startup shared-source validation precedes binding and serves no request. */
+  if(bound_port){args[next++]="--node-settings";args[next++]=public_node;}
   if(query_jail) {
     for(;;) {
       if(next_jail_uid>60000)next_jail_uid=20000;

@@ -44,6 +44,25 @@ iso_runtime_property(dom(false)).
 iso_runtime_property(actor_isolation(independent)).
 iso_runtime_property(hard_termination(true)).
 
+% Trusted HTTP-owner metadata is installed before any shared/private source.
+% Standalone workers have no serving node and enumerate no settings.
+:- dynamic(iso_node_public/4).
+iso_install_node_settings(Port,Capacity,Auth,SourceBytes) :-
+    retractall(iso_node_public(_,_,_,_)),
+    assertz(iso_node_public(Port,Capacity,Auth,SourceBytes)).
+iso_node_setting(Key,Value) :-
+    iso_node_public(Port,Capacity,Auth,SourceBytes),
+    iso_public_node_setting(Key,Port,Capacity,Auth,SourceBytes,Current),
+    Value=Current.
+iso_public_node_setting(url,Port,_,_,_,URL) :-
+    number_codes(Port,Codes),atom_codes(Atom,Codes),
+    atom_concat('http://127.0.0.1:',Atom,URL).
+iso_public_node_setting(profile,_,_,_,_,isobase).
+iso_public_node_setting(sandbox,_,_,_,_,whitelist).
+iso_public_node_setting(auth,_,_,Auth,_,Auth).
+iso_public_node_setting(max_inflight_calls,_,Capacity,_,_,Capacity).
+iso_public_node_setting(max_load_text_bytes,_,_,_,Bytes,Bytes).
+
 % SWI's visible arg/3 also enumerates argument positions when N is free.
 iso_arg(N,T,A) :-
     (var(T)->throw(error(instantiation_error,arg/3))

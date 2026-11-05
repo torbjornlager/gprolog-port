@@ -15,6 +15,7 @@ from numeric_contract_tests import SOURCE as NUMERIC_SOURCE, check_node as check
 from rpc_address_tests import SOURCE as ADDRESS_SOURCE, check_node as check_addresses
 
 extra='''
+node_settings_probe(K,V):-node_setting(K,V).
 reader_ascii("apa").
 reader_unicode("å😀").
 reader_dcg --> "apa".
@@ -94,6 +95,8 @@ with tempfile.TemporaryDirectory(prefix='compiled-tests-') as temp:
     for name in ['via_map','via_bag']:cases.append((f'{name}(X)',{'src_text':shadow}))
     try:
         for node in [interpreted,native]:
+            result=node.call('node_settings_probe(profile,P),node_settings_probe(auth,A),node_settings_probe(url,U)')
+            assert result['type']=='success' and result['data']==[{'P':'isobase','A':'open','U':f"'http://127.0.0.1:{node.port}'"}],result
             for goal in ['reader_ascii(L),L==[a,p,a]',
                          "reader_unicode(L),L==['å','😀']",
                          'phrase(reader_dcg,L),L==[a,p,a]']:

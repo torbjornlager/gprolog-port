@@ -134,6 +134,7 @@ iso_rpc_reserved(nth1,4).
 iso_rpc_reserved(call_nth,2).
 iso_rpc_reserved(time,1).
 iso_rpc_reserved(runtime_property,1).
+iso_rpc_reserved(node_setting,2).
 
 % Guarded standard-library forms cannot be replaced by submitted clauses.
 iso_rpc_reserved(memberchk,2).

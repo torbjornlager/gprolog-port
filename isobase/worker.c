@@ -1,4 +1,5 @@
 #include "protocol.h"
+#include "node_settings.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,7 +72,7 @@ static int load_source(const char *file,const char *loader) {
   /* A future controller owns this path. Bound trusted local input now;
    * this stat check is not an untrusted-path security boundary. */
   struct stat info;
-  if (stat(file,&info) || !S_ISREG(info.st_mode) || info.st_size>1024*1024) {
+  if (stat(file,&info) || !S_ISREG(info.st_mode) || info.st_size>ISO_MAX_SOURCE_BYTES) {
     puts("{\"type\":\"error\",\"term\":\"source_file_unavailable_or_too_large\"}");
     return 0;
   }
@@ -87,7 +88,7 @@ static int load_source(const char *file,const char *loader) {
 }
 static int load_source_fd(const char *number,const char *loader) {
   char *end;long fd=strtol(number,&end,10);struct stat info;
-  if(*end||fd<3||fd>4||fstat((int)fd,&info)||!S_ISREG(info.st_mode)||info.st_size<0||info.st_size>1024*1024)return 0;
+  if(*end||fd<3||fd>4||fstat((int)fd,&info)||!S_ISREG(info.st_mode)||info.st_size<0||info.st_size>ISO_MAX_SOURCE_BYTES)return 0;
   char *text=calloc((size_t)info.st_size+1,1);if(!text)return 0;
   size_t used=0;while(used<(size_t)info.st_size){ssize_t n=read((int)fd,text+used,(size_t)info.st_size-used);if(n<0&&errno==EINTR)continue;if(n<=0){free(text);return 0;}used+=(size_t)n;}
   close((int)fd);if(memchr(text,0,used)){free(text);return 0;}
@@ -122,13 +123,28 @@ static int recovery_test(void) {
   return before==after ? 0 : 1;
 }
 #include "process_security.h"
+static int install_public_node(const IsoPublicNode *node) {
+  Pl_Query_Begin(PL_TRUE);
+  PlTerm args[4]={Pl_Mk_Integer(node->port),Pl_Mk_Integer(node->capacity),
+                 Pl_Mk_Atom(Pl_Create_Atom(node->auth)),Pl_Mk_Integer(ISO_MAX_SOURCE_BYTES)};
+  int status=Pl_Query_Call(Pl_Find_Atom("iso_install_node_settings"),4,args);
+  if(status==PL_EXCEPTION)error_event(Pl_Get_Exception());
+  Pl_Query_End(PL_RECOVER);
+  return status==PL_SUCCESS;
+}
 int main(int argc,char **argv) {
   if(!iso_disable_dumps()){fprintf(stderr,"Cannot disable process core dumps\n");return 2;}
   int recovery=argc==2 && !strcmp(argv[1],"--recovery-test");
-  int source=argc==5 && (!strcmp(argv[3],"--source")||!strcmp(argv[3],"--source-fd"));
-  if (argc!=3 && !recovery && !source) {
-    fprintf(stderr,"usage: %s 'query(Goal,Template)' PAGE_SIZE [--source FILE]\n",argv[0]);
+  const char *source=NULL,*public_node=NULL;int source_fd=0;IsoPublicNode node;
+  if (!recovery && (argc<3 || (argc-3)%2)) {
+    fprintf(stderr,"usage: %s 'query(Goal,Template)' PAGE_SIZE [--source FILE] [--node-settings PORT:CAPACITY:AUTH]\n",argv[0]);
     return 2;
+  }
+  for(int i=3;!recovery&&i<argc;i+=2) {
+    if(!source&&(!strcmp(argv[i],"--source")||!strcmp(argv[i],"--source-fd"))) {
+      source=argv[i+1];source_fd=!strcmp(argv[i],"--source-fd");
+    } else if(!public_node&&!strcmp(argv[i],"--node-settings")&&iso_parse_public_node(argv[i+1],&node))public_node=argv[i+1];
+    else return 2;
   }
   long limit=1;
   if (!recovery) {
@@ -140,6 +156,7 @@ int main(int argc,char **argv) {
   json_bindings=getenv("ISO_JSON_BINDINGS")!=NULL;
   prolog_display=getenv("ISO_PROLOG_DISPLAY")!=NULL;
   if (recovery) { int rc=recovery_test(); Pl_Stop_Prolog(); return rc; }
+  if(public_node&&!install_public_node(&node)){Pl_Stop_Prolog();return 2;}
   const char *shared=getenv("ISO_SHARED_DB"),*shared_fd=getenv("ISO_SHARED_DB_FD");
   if (shared||shared_fd) {
     Pl_Query_Begin(PL_TRUE);
@@ -153,7 +170,7 @@ int main(int argc,char **argv) {
   }
   if (shared && !load_source(shared,"iso_load_shared")) { Pl_Stop_Prolog(); return 0; }
   if(shared_fd&&!load_source_fd(shared_fd,"iso_load_shared_text")){Pl_Stop_Prolog();return 0;}
-  if (source && !(strcmp(argv[3],"--source-fd")?load_source(argv[4],"iso_load_source"):load_source_fd(argv[4],"iso_load_source_text"))) { Pl_Stop_Prolog(); return 0; }
+  if (source && !(source_fd?load_source_fd(source,"iso_load_source_text"):load_source(source,"iso_load_source"))) { Pl_Stop_Prolog(); return 0; }
   PlTerm a[2]; int status=begin(argv[1],a);
   const char *offset_text=getenv("ISO_OFFSET");
   long offset=offset_text?strtol(offset_text,NULL,10):0;

@@ -381,6 +381,30 @@ the execution policy; exposing them requires an explicit policy decision.
 
 ### Execution policy
 
+`node_setting/2` reports the public settings of the HTTP controller serving
+the query. Available keys are `url`, `profile`, `sandbox`, `auth`,
+`max_inflight_calls` and `max_load_text_bytes`. The URL is the controller's
+actual bound loopback endpoint. Profile and sandbox describe the fixed ISOBASE
+whitelist policy; authentication reflects the controller's open/private mode.
+Capacity comes from `--max-queries`, and the source-size value is the worker's
+enforced 1 MiB loader ceiling. Private per-owner and per-budget policies,
+credentials, shared source and internal configuration are not exposed.
+
+Unknown or unavailable keys fail. There is no separate rate-window,
+term-text-byte ceiling, source-origin list, polling timeout, session API or
+actor API setting in this host. The combined HTTP request bound and the
+execution-time budget retain their own enforcement and are not reported as
+different settings. Reads and failed value matches do not change configuration.
+
+The controller passes only validated port/capacity/authentication metadata
+through the private `--node-settings PORT:CAPACITY:AUTH` supervisor/worker
+argument, before loading shared or private source. No ambient metadata
+environment variable is used. Standalone workers without that trusted context
+enumerate no node settings. Source cannot redefine `node_setting/2` or reach
+its private initializer. All three runtime binaries must be rebuilt together.
+`node_settings_tests.py` covers bootstrap validation, real authenticated/open
+nodes, helper contexts, continuation pages, unavailable values and tampering.
+
 `policy.pl` admits guarded RPC/promise operations, an explicit set of pure built-ins and predicates defined
 in submitted source. It rewrites source bodies before installing executable
 clauses and rewrites the query before running it. Native conjunction,

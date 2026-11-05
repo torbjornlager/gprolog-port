@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "protocol.h"
+#include "node_settings.h"
 #define _POSIX_C_SOURCE 200809L
 #define _DARWIN_C_SOURCE
 #include <errno.h>
@@ -109,9 +110,15 @@ int main(int argc,char **argv) {
   long time_limit=1000,idle_limit=30000,heap=16384,max_output=1048576;
   memory_limit=(uint64_t)ISO_DEFAULT_MEMORY_MB*1024*1024;
   const char *source=NULL,*shared=NULL,*offset="0",*format="private";
+  const char *public_node=NULL;
   const char *jail=NULL;long jail_uid=0;int source_fd=0,shared_fd=0;
   for (int i=3;i<argc;i+=2) {
     if (!strcmp(argv[i],"--source")) source=argv[i+1];
+    else if (!strcmp(argv[i],"--node-settings")) {
+      IsoPublicNode parsed;
+      if(public_node||!iso_parse_public_node(argv[i+1],&parsed))return 2;
+      public_node=argv[i+1];
+    }
     else if (!strcmp(argv[i],"--shared-db")) shared=argv[i+1];
     else if (!strcmp(argv[i],"--offset")) { number(argv[i+1],0,1000000000);offset=argv[i+1]; }
     else if (!strcmp(argv[i],"--jail")) jail=argv[i+1];
@@ -161,8 +168,11 @@ int main(int argc,char **argv) {
     if (setenv("GLOBALSZ",size,1) || setenv("LOCALSZ","8192",1) ||
         setenv("TRAILSZ","4096",1) || setenv("CSTRSZ","4096",1)) _exit(126);
     struct rlimit core={0,0};if (setrlimit(RLIMIT_CORE,&core)) _exit(126);
-    if (source) execl(worker,worker,argv[1],argv[2],source_fd?"--source-fd":"--source",source,(char *)NULL);
-    else execl(worker,worker,argv[1],argv[2],(char *)NULL);
+    char *worker_args[8]={worker,argv[1],argv[2]};int next=3;
+    if(source){worker_args[next++]=source_fd?"--source-fd":"--source";worker_args[next++]=(char *)source;}
+    if(public_node){worker_args[next++]="--node-settings";worker_args[next++]=(char *)public_node;}
+    worker_args[next]=NULL;
+    execv(worker,worker_args);
     _exit(127);
   }
   close(commands[0]);close(answers[1]);close(diagnostics[1]);

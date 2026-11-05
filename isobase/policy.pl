@@ -70,6 +70,7 @@ iso_rewrite_in(_,nth1(N,L,E,R),iso_nth_rest(1,N,L,E,R)) :- !.
 iso_rewrite_in(S,call_nth(G,N),iso_call_nth(SG,N)) :- !,iso_rewrite_library_goal(S,G,SG).
 iso_rewrite_in(S,time(G),iso_time(SG)) :- !,iso_rewrite_in(S,G,SG).
 iso_rewrite_in(_,runtime_property(P),iso_runtime_property(P)) :- !.
+iso_rewrite_in(_,node_setting(K,V),iso_node_setting(K,V)) :- !.
 iso_rewrite_in(S,rpc(U,G),iso_rpc(S,U,G,[])) :- !.
 iso_rewrite_in(S,rpc(U,G,O),iso_rpc(S,U,G,O)) :- !.
 iso_rewrite_in(S,promise(U,G,R),iso_promise(S,U,G,R,[])) :- !.
