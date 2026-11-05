@@ -135,3 +135,18 @@ iso_univ_output(Actual,L) :-
     ;iso_throw(error(type_error(list,L),(=..)/2))).
 
 :- foreign(iso_atan2_zero(term,term,term)).
+
+% Commit only to the first match. Inspect the list as it is traversed, so an
+% already matched head does not inspect an unused improper tail.
+iso_memberchk(E, L) :- var(L), !, L=[E|_].
+iso_memberchk(_, []) :- !, fail.
+iso_memberchk(E, [H|T]) :- !, (E=H -> true ; iso_memberchk(E,T)).
+iso_memberchk(_, L) :- throw(error(type_error(list,L),memberchk/2)).
+
+% A private counter gives constant-space counting without exporting the
+% generator's bindings or adding a second result on backtracking.
+iso_countall(Goal, Count) :-
+    Counter=count(0),
+    ( call(Goal), arg(1,Counter,N), Next is N+1,
+      nb_setarg(1,Counter,Next), fail
+    ; arg(1,Counter,Actual), Count=Actual ).

@@ -42,6 +42,11 @@ iso_rewrite_in(_,throw(E),iso_throw(E)) :- !.
 iso_rewrite_in(_,succ(A,B),iso_succ(A,B)) :- !.
 iso_rewrite_in(_,between(L,H,N),iso_between(L,H,N)) :- !.
 iso_rewrite_in(_,length(L,N),iso_length(L,N)) :- !.
+iso_rewrite_in(_,memberchk(E,L),iso_memberchk(E,L)) :- !.
+iso_rewrite_in(S,forall(G,T),\+ (SG, \+ ST)) :- !,
+    iso_rewrite_library_goal(S,G,SG),iso_rewrite_library_goal(S,T,ST).
+iso_rewrite_in(S,countall(G,N),iso_countall(SG,N)) :- !,
+    iso_rewrite_library_goal(S,G,SG).
 iso_rewrite_in(_,atom_length(A,N),iso_text_length(A,N)) :- !.
 iso_rewrite_in(_,atom_codes(A,C),iso_text_codes(A,C)) :- !.
 iso_rewrite_in(_,atom_chars(A,C),iso_text_chars(A,C)) :- !.
@@ -62,7 +67,7 @@ iso_rewrite_in(_,nth0(N,L,E),iso_nth(0,N,L,E)) :- !.
 iso_rewrite_in(_,nth1(N,L,E),iso_nth(1,N,L,E)) :- !.
 iso_rewrite_in(_,nth0(N,L,E,R),iso_nth_rest(0,N,L,E,R)) :- !.
 iso_rewrite_in(_,nth1(N,L,E,R),iso_nth_rest(1,N,L,E,R)) :- !.
-iso_rewrite_in(S,call_nth(G,N),iso_call_nth(SG,N)) :- !,iso_rewrite_in(S,G,SG).
+iso_rewrite_in(S,call_nth(G,N),iso_call_nth(SG,N)) :- !,iso_rewrite_library_goal(S,G,SG).
 iso_rewrite_in(S,time(G),iso_time(SG)) :- !,iso_rewrite_in(S,G,SG).
 iso_rewrite_in(_,runtime_property(P),iso_runtime_property(P)) :- !.
 iso_rewrite_in(S,rpc(U,G),iso_rpc(S,U,G,[])) :- !.
@@ -74,7 +79,7 @@ iso_rewrite_in(S,yield(R,M,O),iso_yield_result(S,R,M,O)) :- !.
 iso_rewrite_in(_,promise_cleanup(R),(iso_integer(R),iso_net_cancel(R))) :- !.
 iso_rewrite_in(Scope,clause(H,B), iso_local_clause_in(Scope,H,B)) :- !.
 iso_rewrite_in(Scope,G, iso_maplist_in(Scope,C,Lists)) :-
-    nonvar(G),functor(G,maplist,N),N>=2,N=<5,!,G=..[maplist,C|Lists].
+    nonvar(G),functor(G,maplist,N),N>=2,N=<8,!,G=..[maplist,C|Lists].
 iso_rewrite_in(Scope,G, iso_foldl_in(Scope,C,Lists,V0,V)) :-
     nonvar(G),functor(G,foldl,N),N>=4,N=<7,!,
     G=..[foldl,C|Args],append(Lists,[V0,V],Args).
@@ -97,6 +102,17 @@ iso_rewrite_quantified_in(Scope,G,SG) :-
 iso_bagof_in(Scope,T,G,L) :- iso_rewrite_quantified_in(Scope,G,SG),bagof(T,SG,Actual),L=Actual.
 iso_setof_in(Scope,T,G,L) :- iso_rewrite_quantified_in(Scope,G,SG),setof(T,SG,Actual),L=Actual.
 
+% Defer invalid callback values until invocation, inside the caller's catch.
+% Callable goals still receive the usual static admission checks.
+iso_rewrite_library_goal(S,G,SG) :-
+    (nonvar(G), \+callable(G) -> SG=iso_execute_in(S,G)
+    ; iso_rewrite_in(S,G,SG)).
+iso_library_apply_in(S,C,Args) :-
+    (var(C) -> throw(error(instantiation_error,maplist/2))
+    ; callable(C) -> true
+    ; throw(error(type_error(callable,C),maplist/2))),
+    iso_apply_in(S,C,Args).
+
 iso_apply_in(Scope,C,Args) :-
     (var(C) -> throw(error(instantiation_error,call/1));true),
     (callable(C) -> C=..Parts
@@ -107,12 +123,12 @@ iso_apply_in(Scope,C,Args) :-
 % Separate alternatives preserve relational enumeration for open lists.
 iso_maplist_in(_,_,Lists) :- iso_empty_lists(Lists).
 iso_maplist_in(Scope,C,Lists) :-
-    iso_list_heads(Lists,Heads,Tails),iso_apply_in(Scope,C,Heads),
+    iso_list_heads(Lists,Heads,Tails),iso_library_apply_in(Scope,C,Heads),
     iso_maplist_in(Scope,C,Tails).
 iso_foldl_in(_,_,Lists,V,V) :- iso_empty_lists(Lists).
 iso_foldl_in(Scope,C,Lists,V0,V) :-
     iso_list_heads(Lists,Heads,Tails),append(Heads,[V0,V1],Args),
-    iso_apply_in(Scope,C,Args),iso_foldl_in(Scope,C,Tails,V1,V).
+    iso_library_apply_in(Scope,C,Args),iso_foldl_in(Scope,C,Tails,V1,V).
 iso_empty_lists([]).
 iso_empty_lists([[]|Ls]) :- iso_empty_lists(Ls).
 iso_list_heads([],[],[]).

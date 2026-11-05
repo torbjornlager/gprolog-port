@@ -212,3 +212,21 @@ are denied. The two-line root-owned worker lease carries budget and client
 identity. The broker binds local continuation ownership to that identity and
 nonce, supplies controller credentials itself, and retains all admission limits.
 The updated controller and broker must be promoted together.
+
+
+The development standard-library repair supplies guarded `memberchk/2`,
+`forall/2`, `countall/2` and the required `maplist/6-8` forms. Callback execution
+still passes through the ordinary local/shared source policy; none of these
+forms exposes native runtime helpers. `memberchk/2` stops at its first match,
+`forall/2` exports no bindings, and `countall/2` uses a private constant-space
+counter with no generator bindings or extra answers. These entry points are
+protected from submitted-source redefinition. `standard_library_tests.py` runs
+the mirrored shared conformance fixture and policy controls in `local-test`.
+The historical comparison lock is unchanged; this does not claim complete
+ISO conformance or promote consumer/public pins.
+
+Library callbacks require callable values at invocation and report
+`type_error(callable, Value)` or `instantiation_error`. Empty iteration and
+vacuous `forall` tests do not invoke unused callbacks. ISO `call/N` retains
+its separate atom/callable error behaviour. Callable goals retain static
+admission checks, and application exceptions propagate unchanged.

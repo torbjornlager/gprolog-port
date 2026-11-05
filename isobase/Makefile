@@ -63,6 +63,7 @@ local-test: query-worker query-supervisor isobase-node
 	python3 source_tests.py
 	python3 character_reader_tests.py
 	python3 policy_tests.py
+	python3 standard_library_tests.py
 	python3 numeric_contract_tests.py
 	python3 rpc_address_tests.py
 	python3 rpc_localhost_tests.py

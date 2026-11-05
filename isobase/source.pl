@@ -134,3 +134,10 @@ iso_rpc_reserved(nth1,4).
 iso_rpc_reserved(call_nth,2).
 iso_rpc_reserved(time,1).
 iso_rpc_reserved(runtime_property,1).
+
+% Guarded standard-library forms cannot be replaced by submitted clauses.
+iso_rpc_reserved(memberchk,2).
+iso_rpc_reserved(forall,2).
+iso_rpc_reserved(countall,2).
+iso_rpc_reserved(maplist,N) :- integer(N),N>=2,N=<8.
+iso_rpc_reserved(foldl,N) :- integer(N),N>=4,N=<7.
