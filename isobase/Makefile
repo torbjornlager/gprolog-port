@@ -2,7 +2,7 @@ ROOT ?= $(abspath ..)
 .DEFAULT_GOAL := all
 export PATH := $(ROOT)/install/bin:$(PATH)
 APP ?=
-.PHONY: all test local-test lifecycle-test promise-context-test credentials-test outbound-test boundary-contract-test status-check comparison-check contract-test security-test diff-test rpc-test https-test compiled-test conformance-test memory-test total-memory-test
+.PHONY: all test local-test lifecycle-test promise-context-test promise-context-race-test credentials-test outbound-test boundary-contract-test status-check comparison-check contract-test security-test diff-test rpc-test https-test compiled-test conformance-test memory-test total-memory-test
 status-check:
 	python3 boundary_decisions_tests.py
 	python3 predicate_inventory.py --check
@@ -24,6 +24,9 @@ lifecycle-test: all
 	python3 credential_lifecycle_tests.py
 promise-context-test: all
 	python3 promise_context_tests.py
+
+promise-context-race-test: all
+	python3 promise_context_race_tests.py
 security-test: all outbound-test credentials-test lifecycle-test
 	python3 security_tests.py
 total-memory-test: all
@@ -81,6 +84,7 @@ local-test: query-worker query-supervisor isobase-node
 	python3 eviction_tests.py
 	python3 query_ownership_tests.py
 	python3 promise_context_tests.py
+	python3 promise_context_race_tests.py
 	python3 request_reader_tests.py
 	python3 request_line_tests.py
 	python3 parameter_encoding_tests.py

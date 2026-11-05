@@ -35,6 +35,11 @@ which require the pinned SWI runtime and Trinity checkout described in
 [COMPARISON_BUILDS.md](COMPARISON_BUILDS.md). Compiled and other comparison suites
 retain their separate targets and comparison prerequisites.
 
+`make promise-context-race-test` checks continuation-first and retirement-first
+orderings using barriers in disposable controller copies. An unsafe expiry
+mutation must retire an active continuation in the negative control. The same
+selection runs in `local-test`; installed controllers are unchanged.
+
 Outbound access is denied by default. Configure `--outbound-policy FILE` with
 exact approved origins and IP pins; see [OUTBOUND_POLICY.md](OUTBOUND_POLICY.md).
 This also applies to the RPC examples below. Redirects and ambient proxies are disabled.
