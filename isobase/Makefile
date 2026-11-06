@@ -37,6 +37,7 @@ memory-test: all
 diff-test: all
 	python3 differential_tests.py
 rpc-test: all
+	python3 yield_callback_tests.py
 	python3 uri_option_tests.py
 	python3 boolean_option_tests.py
 	python3 character_reader_tests.py
@@ -84,6 +85,7 @@ local-test: query-worker query-supervisor isobase-node
 	python3 eviction_tests.py
 	python3 query_ownership_tests.py
 	python3 promise_context_tests.py
+	python3 yield_callback_tests.py
 	python3 promise_context_race_tests.py
 	python3 request_reader_tests.py
 	python3 request_line_tests.py

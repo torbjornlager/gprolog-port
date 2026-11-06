@@ -40,7 +40,9 @@ iso_yield_result(Scope,Reference,Message,Options) :-
     iso_option(timeout,Options,none,Timeout),iso_millis(Timeout,-1,Millis),
     iso_net_wait(Reference,Millis,Text,Status),
     ((Status==timeout;Status==missing) ->
-        iso_option(on_timeout,Options,true,OnTimeout),iso_execute_in(Scope,OnTimeout)
+        iso_option(on_timeout,Options,true,OnTimeout),
+        (iso_execute_in(Scope,OnTimeout) -> true
+        ;throw(error(timeout_callback_failed(Reference),yield/3)))
     ;iso_promise_transport_result(Status,Text,Message)).
 iso_yield_plain(Reference,Message) :-
     iso_integer(Reference),iso_net_peek(Reference,Text,Status),

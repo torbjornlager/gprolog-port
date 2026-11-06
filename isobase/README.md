@@ -255,6 +255,8 @@ resolve the outstanding GNU option/lifecycle contract questions in STATUS.md.
 `yield(R,M,[timeout(Seconds),on_timeout(Goal)])` retains the promise after a
 wait timeout and executes `Goal` through the caller's execution policy. The
 callback defaults to `true`. A later yield can still receive the response.
+The callback runs once: failure raises `error(timeout_callback_failed(R),yield/3)`,
+exceptions propagate, and alternatives do not produce further yield results.
 `yield/2` waits for a matching message, as in the demonstrator. A pattern
 that cannot match the single response will wait until the query is terminated.
 `yield/3` consumes the response before unifying it with `M`; use a fresh

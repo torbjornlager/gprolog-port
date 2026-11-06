@@ -126,7 +126,7 @@ with tempfile.TemporaryFile(mode='w+') as log:
             (f"promise('{gu}',throw(ball),R),yield(R,error(ball)),Out=ok",'ok'),
             (f"promise('{gu}',true,R),findall(M,yield(R,M),Ms),Ms=[success([true],false)],Out=once",'once'),
             (f"promise('{fake}',fixture_slow,R),yield(R,M,[timeout(0),on_timeout(Out=timeout)]),var(M),yield(R,success([ready],false))",'timeout'),
-            (f"promise('{fake}',fixture_slow,R),(yield(R,_,[timeout(0),on_timeout(fail)])->fail;true),yield(R,success([ready],false)),Out=retained",'retained'),
+            (f"promise('{fake}',fixture_slow,R),catch(yield(R,_,[timeout(0),on_timeout(fail)]),E,true),nonvar(E),E=error(timeout_callback_failed(R),_),yield(R,success([ready],false)),Out=retained",'retained'),
             (f"promise('{fake}',fixture_slow,R),catch(yield(R,_,[timeout(0),on_timeout(throw(ball))]),ball,true),yield(R,success([ready],false)),Out=retained",'retained'),
             (f"promise('{gu}',X=a,R,[template(X)]),var(X),yield(R,success([Y],false)),Y=a,var(X),Out=isolated",'isolated'),
         ]
@@ -141,9 +141,6 @@ with tempfile.TemporaryFile(mode='w+') as log:
                     checked_goal=f"promise('{gu}',true,R),yield(R,success([true],false)),catch(yield(R,_),error(existence_error(promise,R),_),Out=gone)"
                 elif caller==sp and index==6:
                     checked_goal=goal.replace('var(M)','M==timeout')
-                elif caller==sp and index==7:
-                    checked_goal=goal.replace('yield(R,_,[timeout(0),on_timeout(fail)])',
-                        'catch(yield(R,_,[timeout(0),on_timeout(fail)]),error(timeout_callback_failed(R),_),fail)')
                 result=get(caller,checked_goal)
                 assert result['type']=='success' and result['data'][0]['Out']==expected,(caller,goal,result)
         print(f'PASS {len(promise_cases)} promise state cases on GNU and SWI')
