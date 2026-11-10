@@ -51,9 +51,9 @@ https-test: all
 	python3 https_tests.py
 all: query-worker query-supervisor isobase-node
 isobase-node: http.c http_security.h credential_file.h process_security.h protocol.h memory.h memory_tree.h
-	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -pthread http.c -o $@
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -pthread http.c -o $@ -lm
 isobase-node-asan: http.c http_security.h credential_file.h process_security.h protocol.h memory.h memory_tree.h
-	$(CC) -std=c11 -Wall -Wextra -Werror -g -O1 -fsanitize=address,undefined -pthread http.c -o $@
+	$(CC) -std=c11 -Wall -Wextra -Werror -g -O1 -fsanitize=address,undefined -pthread http.c -o $@ -lm
 query-supervisor: supervisor.c linux_query_jail.h process_security.h protocol.h memory.h node_settings.h
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 supervisor.c -o $@
 query-supervisor-asan: supervisor.c linux_query_jail.h process_security.h protocol.h memory.h node_settings.h
