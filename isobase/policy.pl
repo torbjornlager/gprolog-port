@@ -18,10 +18,13 @@ iso_execute(Goal) :- iso_execute_in(local,Goal).
 iso_rewrite(Goal,Safe) :- iso_rewrite_in(local,Goal,Safe).
 
 iso_execute_in(Scope,Goal) :-
+    iso_prepare_goal(Scope,Goal,Safe), call(Safe).
+
+iso_prepare_goal(Scope,Goal,Safe) :-
     (var(Goal) -> throw(error(instantiation_error,iso_execute/1));true),
     (acyclic_term(Goal) -> true
     ; throw(error(representation_error(cyclic_term),iso_execute/1))),
-    iso_rewrite_in(Scope,Goal, Safe), call(Safe).
+    iso_rewrite_in(Scope,Goal,Safe).
 
 % Retain native control structure so a source clause's cut keeps its scope.
 % A variable in goal position is checked when invoked, after it is instantiated.
@@ -30,7 +33,10 @@ iso_rewrite_in(Scope,(A,B), (SA,SB)) :- !, iso_rewrite_in(Scope,A,SA),iso_rewrit
 iso_rewrite_in(Scope,(A;B), (SA;SB)) :- !, iso_rewrite_in(Scope,A,SA),iso_rewrite_in(Scope,B,SB).
 iso_rewrite_in(Scope,(A->B), (SA->SB)) :- !, iso_rewrite_in(Scope,A,SA),iso_rewrite_in(Scope,B,SB).
 iso_rewrite_in(Scope,once(A), once(SA)) :- !, iso_rewrite_in(Scope,A,SA).
-iso_rewrite_in(Scope,\+(A), \+(SA)) :- !, iso_rewrite_in(Scope,A,SA).
+iso_rewrite_in(Scope,\+(A), \+(SA)) :- !,
+    % Keep policy checking eager and defer a callable error until negation runs.
+    catch(iso_rewrite_in(Scope,A,SA), error(type_error(callable,_),iso_execute/1),
+          SA=iso_apply_in(Scope,A,[])).
 iso_rewrite_in(Scope,catch(A,E,B), catch(SA,E,SB)) :- !,
     iso_rewrite_in(Scope,A,SA),iso_rewrite_in(Scope,B,SB).
 iso_rewrite_in(Scope,findall(T,G,L), (findall(T,SG,Actual),L=Actual)) :- !, iso_rewrite_in(Scope,G,SG).
@@ -119,7 +125,10 @@ iso_apply_in(Scope,C,Args) :-
     (callable(C) -> C=..Parts
     ; (Args=[_|_],atomic(C) -> Type=atom;Type=callable),
       throw(error(type_error(Type,C),call/1))),
-    append(Parts,Args,Full), G=..Full, iso_execute_in(Scope,G).
+    append(Parts,Args,Full), G=..Full,
+    catch(iso_prepare_goal(Scope,G,Safe), error(type_error(callable,_),iso_execute/1),
+          throw(error(type_error(callable,G),call/1))),
+    call(Safe).
 
 % Separate alternatives preserve relational enumeration for open lists.
 iso_maplist_in(_,_,Lists) :- iso_empty_lists(Lists).
