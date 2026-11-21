@@ -42,6 +42,10 @@ try:
         assert call(boom,**kwargs)[1]['type']=='error',kwargs
     assert call(boom,limit=5)[1]=={'type':'success','data':[{'X':'a'},{'X':'b'}],'more':True}
     assert call('catch(succ(1,1.5),E,true)')[1]['data'][0]['E']=='error(type_error(integer,1.5),integer_relation)'
+    # sleep/1 is ISOBASE; the execution deadline still ends a long sleep
+    # without publishing the answers found before it (conformance PE-008).
+    assert call('(sleep(0.05),X=a)')[1]=={'type':'success','data':[{'X':'a'}],'more':False}
+    assert call('catch(sleep(-1),E,true)')[1]['data'][0]['E']=='error(domain_error(not_less_than_zero,-1),sleep/1)'
     assert call('fail')[1]=={'type':'failure'}
     assert call('X=hello',template='ignored(Y)')[1]['data']==[{'X':'hello'}]
     assert call('X=Y')[1]['data'][0]['X']==call('X=Y')[1]['data'][0]['Y']

@@ -203,6 +203,9 @@ iso_pure(length/2).
 iso_pure(between/3).
 iso_pure(select/3).
 iso_pure(succ/2).
+% ISOBASE sleep/1: GNU's native sleep (non-negative seconds, fractional
+% allowed). The worker's execution deadline still ends a long sleep.
+iso_pure(sleep/1).
 iso_pure(nth/3).
 
 % Like phrase/3 in the reference, check the outer list cell, allowing open
