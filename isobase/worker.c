@@ -9,19 +9,22 @@
 #define __GPROLOG_FOREIGN_STRICT__
 #include "gprolog.h"
 static int json_bindings,prolog_display,empty_page;
+/* Answers are written here: stdout, or a memory buffer for an unbounded page. */
+static FILE *page_out;
 
 /* Private, trusted-input protocol, not an HTTP or sandbox boundary.
  * A process owns one query. One answer is buffered ahead of each page.
  * Serialize before advancing: backtracking invalidates previous bindings.
  */
 static void json_string(const char *s) {
-  putchar('"');
+  FILE *o=page_out?page_out:stdout;
+  fputc('"',o);
   for (const unsigned char *p=(const unsigned char *)s; *p; ++p) {
-    if (*p=='"' || *p=='\\') { putchar('\\'); putchar(*p); }
-    else if (*p<32) printf("\\u%04x", *p);
-    else putchar(*p);
+    if (*p=='"' || *p=='\\') { fputc('\\',o); fputc(*p,o); }
+    else if (*p<32) fprintf(o,"\\u%04x", *p);
+    else fputc(*p,o);
   }
-  putchar('"');
+  fputc('"',o);
 }
 static char *copy_term(PlTerm t) {
   Pl_Query_Begin(PL_TRUE);
@@ -52,16 +55,17 @@ static void print_answer(PlTerm term) {
     } else s=copy_term(term);
     if(!s)exit(2);json_string(s);free(s);return;
   }
-  putchar('{');int first=1;
+  FILE *o=page_out?page_out:stdout;
+  fputc('{',o);int first=1;
   while (Pl_Type_Of_Term(term)==PL_LST) {
     PlTerm *list=Pl_Rd_List_Check(term);int f,n;
     PlTerm *pair=Pl_Rd_Compound_Check(list[0],&f,&n);
-    if (!first) putchar(',');first=0;
-    json_string(Pl_Atom_Name(Pl_Rd_Atom_Check(pair[0])));putchar(':');
+    if (!first) fputc(',',o);first=0;
+    json_string(Pl_Atom_Name(Pl_Rd_Atom_Check(pair[0])));fputc(':',o);
     json_string(Pl_Atom_Name(Pl_Rd_Atom_Check(pair[1])));
     term=list[1];
   }
-  putchar('}');
+  fputc('}',o);
 }
 static void error_event(PlTerm term) {
   char *error=copy_term(term);
@@ -180,14 +184,26 @@ int main(int argc,char **argv) {
       error_event(Pl_Get_Exception()); break;
     }
     if (status==PL_FAILURE) { puts("{\"type\":\"failure\"}"); break; }
-    /* Hold at most a page of serialized answers; no Prolog answer list. */
-    printf("{\"type\":\"success\",\"answers\":[");
+    /* Hold at most a page of serialized answers; no Prolog answer list.
+     * An unbounded page (omitted limit) asks for all answers: it is
+     * buffered, so an exception after answers is reported instead of a
+     * partial page, as on the native nodes. */
+    char *buffered=NULL;size_t buffered_size=0;
+    int unbounded=limit==ISO_MAX_PAGE;
+    if (unbounded && !(page_out=open_memstream(&buffered,&buffered_size))) { perror("open_memstream"); exit(2); }
+    if (!unbounded) printf("{\"type\":\"success\",\"answers\":[");
     long count=0;
     do {
-      if (count) putchar(',');
+      if (count) fputc(',',page_out?page_out:stdout);
       print_answer(a[1]);count++;
       status=Pl_Query_Next_Solution();
     } while (count<limit && status==PL_SUCCESS);
+    if (unbounded) {
+      fclose(page_out);page_out=NULL;
+      if (status==PL_EXCEPTION) { free(buffered); error_event(Pl_Get_Exception()); break; }
+      printf("{\"type\":\"success\",\"answers\":[");
+      fwrite(buffered,1,buffered_size,stdout);free(buffered);
+    }
     printf("],\"more\":%s}\n",status==PL_FAILURE ? "false" : "true");
     fflush(stdout);
     if (status==PL_FAILURE) break;

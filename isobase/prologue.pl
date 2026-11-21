@@ -110,7 +110,10 @@ iso_throw(E) :-
 
 % SWI succ/2 checks the first nonvariable argument and unifies the other.
 % Validate before entering native code so cyclic error culprits stay finite.
+% A bound second argument is checked too, so succ(1,1.5) raises
+% type_error(integer,1.5) instead of failing (conformance SU-HTTP-016).
 iso_succ(A,B) :-
+    (nonvar(B)->iso_natural(B);true),
     (nonvar(A)->iso_natural(A),succ(A,Next),B=Next
     ;iso_natural(B),succ(A,B)).
 iso_natural(N) :-

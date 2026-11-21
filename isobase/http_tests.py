@@ -34,6 +34,14 @@ try:
     assert call('true')[1]=={'type':'success','data':[{}],'more':False}
     assert call('member(X,[a,b,c])',limit=1,offset=2)[1]=={'type':'success','data':[{'X':'c'}],'more':False}
     assert call('repeat,fail',limit=0)[1]=={'type':'failure'}
+    # An omitted limit asks for all answers: an exception after answers is
+    # the answer, not a partial page (conformance PE-014/015). A bounded
+    # page still returns the answers first and keeps the exception.
+    boom='(member(X,[a,b]);throw(page_boom))'
+    for kwargs in [{},{'once':'true'}]:
+        assert call(boom,**kwargs)[1]['type']=='error',kwargs
+    assert call(boom,limit=5)[1]=={'type':'success','data':[{'X':'a'},{'X':'b'}],'more':True}
+    assert call('catch(succ(1,1.5),E,true)')[1]['data'][0]['E']=='error(type_error(integer,1.5),integer_relation)'
     assert call('fail')[1]=={'type':'failure'}
     assert call('X=hello',template='ignored(Y)')[1]['data']==[{'X':'hello'}]
     assert call('X=Y')[1]['data'][0]['X']==call('X=Y')[1]['data'][0]['Y']

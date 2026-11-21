@@ -105,15 +105,27 @@ iso_param(Base,Key,Value,Out) :-
     (iso_net_escape(Atom,Encoded)->true;throw(error(request_too_large,rpc/3))),
     atom_concat(Base,'&',A),atom_concat(A,Key,B),atom_concat(B,'=',C),atom_concat(C,Encoded,Out).
 iso_uri(URI0,URI) :-
-    (var(URI0)->throw(error(instantiation_error,rpc/3));true),
-    (atom(URI0)->true;throw(error(type_error(atom,URI0),rpc/3))),
-    (URI0==localhost -> iso_net_local_node_uri(A);iso_source_uri(URI0,A)),
+    iso_uri_text(URI0,URI1),
+    (URI1==localhost -> iso_net_local_node_uri(A);iso_source_uri(URI1,A)),
     (iso_net_node_uri(A)->true;throw(error(domain_error(http_uri,A),rpc/3))),
     (sub_atom(A,_,1,0,'/')->atom_length(A,N),M is N-1,sub_atom(A,0,M,1,URI);URI=A).
+% A URI is an atom or text: a proper list of characters or of codes (GNU
+% has no string objects). Anything else, including Host:Port, raises
+% type_error(atom_or_string,URI) before any request (17 November URI rule).
+iso_uri_text(URI0,A) :-
+    (var(URI0)->throw(error(instantiation_error,rpc/3));true),
+    (acyclic_term(URI0)->true;throw(error(representation_error(cyclic_term),rpc/3))),
+    (atom(URI0)->A=URI0
+    ;iso_is_list(URI0),URI0=[_|_],iso_uri_chars(URI0)->iso_text_chars(A,URI0)
+    ;iso_is_list(URI0),URI0=[_|_],iso_uri_codes(URI0)->iso_text_codes(A,URI0)
+    ;throw(error(type_error(atom_or_string,URI0),rpc/3))).
+iso_uri_chars([]).
+iso_uri_chars([C|Cs]) :- atom(C),iso_atom_unicode(C,[_]),iso_uri_chars(Cs).
+iso_uri_codes([]).
+iso_uri_codes([C|Cs]) :- integer(C),C>0,C=<0x10FFFF,iso_uri_codes(Cs).
 % A source URL identifies an exact resource, not a node base URL.
 iso_source_uri(URI0,A) :-
-    (var(URI0)->throw(error(instantiation_error,rpc/3));true),
-    (atom(URI0)->A=URI0;throw(error(type_error(atom,URI0),rpc/3))),
+    iso_uri_text(URI0,A),
     ((sub_atom(A,0,7,_,'http://');sub_atom(A,0,8,_,'https://'))->true
     ;throw(error(domain_error(http_uri,A),rpc/3))).
 

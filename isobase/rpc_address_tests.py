@@ -52,7 +52,15 @@ def check(execute):
             execute(f"{operation}('{base}',[src_uri('{base}/source?name=a%2Fb')])")
             assert server.paths[0]=='/source?name=a%2Fb' and len(server.paths)==2,server.paths
             checks+=1
-            execute(f"catch(({operation}('127.0.0.1':{server.server_port},[]),fail),error(type_error(atom,'127.0.0.1':{server.server_port}),_),true)")
+            # 17 November URI rule: Host:Port is not a URI; text (characters
+            # or codes) is, and reaches the same node as the atom.
+            execute(f"catch(({operation}('127.0.0.1':{server.server_port},[]),fail),error(type_error(atom_or_string,'127.0.0.1':{server.server_port}),_),true)")
+            execute(f"catch(({operation}([h,1.5],[]),fail),error(type_error(atom_or_string,[h,1.5]),_),true)")
+            for spelling in ['atom_chars','atom_codes']:
+                server.paths.clear()
+                execute(f"{spelling}('{base}/nested',T),{operation}(T,[])")
+                assert len(server.paths)==1 and server.paths[0].startswith('/nested/call?'),server.paths
+                checks+=1
             # Invalid attempts must not exhaust the 16 asynchronous request slots.
             execute(f"findall(N,(between(1,24,N),address_rejected('{base}?x',{operation},[])),Ns),length(Ns,24),{operation}('{base}',[])")
             checks+=2
